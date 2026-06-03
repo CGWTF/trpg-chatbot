@@ -82,10 +82,8 @@ export default function App() {
     createImagePlugin(),
   ], []);
 
-  // ── 动态插件 (依赖 messages/apiKey, 随对话更新) ──
+  // ── 动态插件 (不再依赖 messages 闭包，sendToAI 直接传参) ──
   const aiPlugin = useMemo(() => createAIPlugin({
-    apiKey,
-    getMessages: () => messages,
     onStreamStart: () => { setIsStreaming(true); setStreamingText(''); },
     onStreamChunk: (text) => setStreamingText(text),
     onStreamEnd: (aborted) => {
@@ -100,7 +98,7 @@ export default function App() {
       setStreamingText('');
       setIsProcessing(false);
     },
-  }), [apiKey, addMessage]);
+  }), []);
 
   const plugins = useMemo(() => [...staticPlugins, aiPlugin], [staticPlugins, aiPlugin]);
   const pipeline = usePipeline(plugins);
@@ -123,8 +121,18 @@ export default function App() {
     });
   }, [setMessages]);
 
-  // ── AI 调用 ──
+  // ── AI 调用 (v2: 传入当前 messages 和 apiKey，避开闭包过期) ──
   const callAI = useCallback(async (userText) => {
+    if (!apiKey) {
+      addMessage({
+        text: '⚠️ **需要设置 API Key 才能使用故事模式！**\n\n请点击右上角的 ⚙️ 设置按钮，输入你的 DeepSeek API Key。',
+        type: 'system',
+        time: getTime(),
+      });
+      setIsProcessing(false);
+      return;
+    }
+
     const aiPlugin = plugins.find(p => p.name === 'ai');
     if (!aiPlugin) return;
 
@@ -132,7 +140,11 @@ export default function App() {
     abortRef.current = controller;
 
     pipeline.run('onBeforeAI', userText);
-    const result = await aiPlugin.sendToAI(userText, controller);
+    // 直接传入当前的 messages（从 useStoryManager 实时拿，非闭包）
+    const result = await aiPlugin.sendToAI(userText, controller, {
+      messages,
+      apiKey,
+    });
 
     setIsStreaming(false);
     setStreamingText('');
@@ -143,7 +155,7 @@ export default function App() {
       addMessage({ text: result, type: 'bot', time: getTime() });
     }
     setIsProcessing(false);
-  }, [plugins, addMessage, pipeline]);
+  }, [plugins, messages, apiKey, addMessage, pipeline]);
 
   // ── 快速检定 ──
   const handleQuickRoll = useCallback((check) => {

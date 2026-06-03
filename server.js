@@ -20,14 +20,14 @@ const DEEPSEEK_BASE = 'https://api.deepseek.com';
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 // 系统提示词 - GM 人设
-const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你的任务是通过对话带领玩家进行一场精彩的互动故事冒险。
+const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你的任务是通过对话带领玩家进行一场持续的互动故事冒险。
 
 ## 你的风格
 - 你是故事的叙述者、世界的描绘者、NPC的扮演者
 - 用生动、沉浸式的语言描述场景、人物和事件
 - 根据玩家的行动，推动剧情发展，给出合理的后果
 - 在关键不确定的时刻，可以要求玩家进行属性/技能检定
-- 保持故事的连贯性，记住之前发生的事情
+- **保持故事的连贯性，记住之前发生的事情** —— 这是最重要的
 - 营造氛围感——紧张、神秘、热血或恐怖，视场景而定
 
 ## 骰子机制
@@ -40,43 +40,21 @@ const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你�
 - 你描述世界的反应、NPC的回应、事件的发展
 - 像一个真正的跑团游戏一样，你们共同创作故事
 
+## ⚠️ 重要规则：持续推动，不要结束
+- **绝对不能主动结束当前故事或开启新故事**
+- 无论故事进行了多少轮，都要持续推动当前剧情
+- 如果感觉故事到了一个段落（战斗结束、谜题解开），应该描述"余波"并抛出新的情节钩子
+- 不要总结冒险、不要发出"冒险告一段落"之类的结束语
+- 除非玩家明确说了"结束冒险"或"我们换个故事"，否则永远把故事继续下去
+- 每次回复的最后都要留下悬念或待探索的方向
+
 ## 注意事项
 - 不要替玩家决定他们角色的行动
 - 保持中立公正，不要故意放水也不要刻意刁难
 - 如果玩家做了很蠢的事，让后果自然发生
 - 用中文回复，保持沉浸感
 
-## 重要：保持故事连续性
-- **禁止主动结束故事或开启新篇章**，除非玩家明确要求"结束冒险"或"开新故事"
-- 持续推动当前剧情发展，保持故事的连贯性
-- 每次回复都必须基于之前的对话历史推进，让故事向前发展
-- 不要跳过时间、不要擅自总结收尾、不要替故事画句号
-
-现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！`;
-
-const SYSTEM_TOKEN_BUDGET = 2800; // system prompt 约占 ~2800 token 预算（实际约 500 字符）
-
-/**
- * 粗略估算文本 token 数
- * 中文 ≈ 1.5 token/字符，英文 ≈ 0.25 token/字符
- */
-function estimateTokens(text) {
-  if (!text) return 0;
-  let cjk = 0, other = 0;
-  for (const ch of text) {
-    const code = ch.codePointAt(0);
-    // CJK + 日文 + 韩文 Unicode 范围
-    if ((code >= 0x4E00 && code <= 0x9FFF) ||
-        (code >= 0x3040 && code <= 0x309F) || // 日文平假名
-        (code >= 0x30A0 && code <= 0x30FF) || // 日文片假名
-        (code >= 0xAC00 && code <= 0xD7AF)) { // 韩文
-      cjk++;
-    } else {
-      other++;
-    }
-  }
-  return Math.ceil(cjk * 1.5 + other * 0.25);
-}
+现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！冒险不会结束，直到玩家说停。`;
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -90,23 +68,27 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Token 感知截断：从后往前取消息，确保不超 28K（留 4K 给回复）
-    const MAX_TOKENS = 28000;
-    const chatMessages = [{ role: 'system', content: SYSTEM_PROMPT }];
-    let used = estimateTokens(SYSTEM_PROMPT);
-    const contextMessages = [];
+    // 构建 OpenAI 格式的消息列表
+    // 保留开头 6 条（角色设定+故事开头）和最近 44 条，避免丢失早期上下文
+    const MAX_TAIL = 44;
+    const MAX_HEAD = 6;
+    let historyMessages = messages.map(m => ({
+      role: m.type === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    }));
 
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const tokens = estimateTokens(messages[i].text);
-      if (used + tokens > MAX_TOKENS && contextMessages.length >= 2) break;
-      used += tokens;
-      contextMessages.unshift({
-        role: messages[i].type === 'user' ? 'user' : 'assistant',
-        content: messages[i].text,
-      });
+    if (historyMessages.length > MAX_HEAD + MAX_TAIL) {
+      // 保留开头 + 末尾，丢掉中间
+      historyMessages = [
+        ...historyMessages.slice(0, MAX_HEAD),
+        ...historyMessages.slice(-MAX_TAIL),
+      ];
     }
 
-    chatMessages.push(...contextMessages);
+    const chatMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...historyMessages,
+    ];
 
     // 调用 DeepSeek API (流式)
     const response = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
