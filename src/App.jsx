@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import StorySidebar from './components/StorySidebar';
@@ -41,8 +41,32 @@ export default function App() {
   const [apiKey, setApiKey] = useLocalStorageState('trpg_deepseek_key', '');
   const [imageConfig, setImageConfigState] = useLocalStorageState('trpg_image_config', getImageConfig());
   const [charStats, setCharStats] = useLocalStorageState('trpg_char_stats', { STR:0,DEX:0,CON:0,INT:0,WIS:0,CHA:0 });
+  const [pointLimit, setPointLimit] = useLocalStorageState('trpg_point_limit', 20);
 
-  const [characterName, setCharacterName] = useState('冒险者');
+  // 一次性迁移：D&D 属性值格式 (≥7) → 加值点数 (值-10)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('trpg_char_stats');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const vals = Object.values(parsed);
+      if (vals.length === 6 && vals.every(v => typeof v === 'number' && v >= 7)) {
+        const migrated = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          migrated[k] = Math.max(0, (parseInt(v) || 10) - 10);
+        }
+        setCharStats(migrated);
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem('trpg_point_limit');
+      if (raw && parseInt(raw) >= 60) {
+        setPointLimit(20);
+      }
+    } catch {}
+  }, []); // 仅首次挂载执行
+
+  const [characterName, setCharacterName] = useLocalStorageState('trpg_character_name', '冒险者');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -97,8 +121,7 @@ export default function App() {
       }
       return u;
     });
-    pipeline.run('onImageGenerated', { url, prompt, engine });
-  }, [setMessages, pipeline]);
+  }, [setMessages]);
 
   // ── AI 调用 ──
   const callAI = useCallback(async (userText) => {
@@ -211,14 +234,14 @@ export default function App() {
         <div className="header-right">
           <label className="character-name-label">
             🧑 角色名:
-            <input type="text" className="character-name-input" value={characterName} onChange={(e) => setCharacterName(e.target.value || '冒险者')} maxLength={20} placeholder="冒险者" />
+            <input type="text" className="character-name-input" value={characterName} onChange={(e) => setCharacterName(e.target.value)} maxLength={20} placeholder="冒险者" />
           </label>
           <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="API 设置">⚙️</button>
           <button className="clear-btn" onClick={onNewWithHook} title="开始新冒险">✨ 新冒险</button>
         </div>
       </header>
 
-      <CharPanel stats={charStats} onChange={setCharStats} onQuickRoll={handleQuickRoll} isOpen={showCharPanel} onToggle={() => setShowCharPanel(!showCharPanel)} />
+      <CharPanel stats={charStats} onChange={setCharStats} pointLimit={pointLimit} onPointLimitChange={setPointLimit} onQuickRoll={handleQuickRoll} isOpen={showCharPanel} onToggle={() => setShowCharPanel(!showCharPanel)} />
 
       {showSettings && (
         <div className="settings-panel">
@@ -251,7 +274,26 @@ export default function App() {
                     <input type="text" className="api-key-input" placeholder="Base URL" value={imageConfig.baseUrl} onChange={(e) => updateImageConfig({ baseUrl: e.target.value })} style={{ flex: 2 }} />
                   )}
                   <input type="text" className="api-key-input" placeholder="模型" value={imageConfig.model} onChange={(e) => updateImageConfig({ model: e.target.value })} style={{ flex: 1 }} />
-                  <input type="text" className="api-key-input" placeholder="尺寸" value={imageConfig.size} onChange={(e) => updateImageConfig({ size: e.target.value })} style={{ flex: 1, maxWidth: 140 }} />
+                  {(() => {
+                    const SIZE_OPTIONS = ['1024x1024', '1792x1024', '1024x1792', '512x512', '256x256'];
+                    const isCustom = !SIZE_OPTIONS.includes(imageConfig.size);
+                    return (<>
+                      <select className="settings-select" value={isCustom ? 'custom' : imageConfig.size} onChange={(e) => {
+                        if (e.target.value === 'custom') { updateImageConfig({ size: '' }); }
+                        else { updateImageConfig({ size: e.target.value }); }
+                      }} style={{ flex: 1, maxWidth: 150 }}>
+                        <option value="1024x1024">1024×1024 (正方形)</option>
+                        <option value="1792x1024">1792×1024 (横版)</option>
+                        <option value="1024x1792">1024×1792 (竖版)</option>
+                        <option value="512x512">512×512 (小图)</option>
+                        <option value="256x256">256×256 (缩略图)</option>
+                        <option value="custom">🔧 自定义...</option>
+                      </select>
+                      {isCustom && (
+                        <input type="text" className="api-key-input" placeholder="如: 1280x720" value={imageConfig.size} onChange={(e) => updateImageConfig({ size: e.target.value })} style={{ flex: 1, maxWidth: 140 }} />
+                      )}
+                    </>);
+                  })()}
                 </div>
               </>
             )}

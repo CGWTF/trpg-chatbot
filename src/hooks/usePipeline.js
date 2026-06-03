@@ -11,7 +11,6 @@ import { useCallback } from 'react';
  *   afterSend(input, result)    → 发送后回调 (副作用)
  *   beforeAI(messages)          → AI 请求前，可修改 messages
  *   afterAI(response)           → AI 回复后，可修改 response
- *   onImageGenerated(info)      → 图片生成后
  *   onStorySaved(info)          → 存档变更后
  *
  * 约定:

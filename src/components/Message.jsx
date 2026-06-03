@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { extractScenePrompt, enhancePrompt, fetchGeneratedImage } from '../utils/imageGen';
 
 export default function Message({ msg, onImageGenerate }) {
@@ -8,6 +8,14 @@ export default function Message({ msg, onImageGenerate }) {
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [imgBlobUrl, setImgBlobUrl] = useState(null);
+  const blobRef = useRef(null);
+
+  // 组件卸载或换图时 revoke 旧 blob URL
+  useEffect(() => {
+    return () => {
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+    };
+  }, []);
 
   const showImageBtn = !isUser && !isSystem && !isDice && msg.text && msg.text.length > 30;
 
@@ -16,10 +24,15 @@ export default function Message({ msg, onImageGenerate }) {
     setImgError(false);
 
     try {
+      // 生成前先 revoke 旧图 blob
+      if (blobRef.current) { URL.revokeObjectURL(blobRef.current); blobRef.current = null; }
+      if (imgBlobUrl?.startsWith('blob:')) URL.revokeObjectURL(imgBlobUrl);
+
       const scenePrompt = extractScenePrompt(msg.text);
       const enhanced = enhancePrompt(scenePrompt);
       const { blobUrl, engine } = await fetchGeneratedImage(enhanced);
 
+      blobRef.current = blobUrl;
       setImgBlobUrl(blobUrl);
       setImgLoading(false);
 

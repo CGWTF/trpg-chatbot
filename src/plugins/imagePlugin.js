@@ -4,7 +4,6 @@ import { getImageConfig } from '../utils/storage';
 /**
  * 图片生成插件
  * beforeSend: 拦截 /image 指令 → 短路
- * onImageGenerated: 外部回调 (App.jsx 通过 pipeline.run 调用)
  */
 export default function createImagePlugin() {
   return {
@@ -20,20 +19,6 @@ export default function createImagePlugin() {
         return { result: { text: prompt, type: 'image-request', source: 'image' } };
       }
       return input;
-    },
-
-    // 当外部（App）通过 pipeline 触发图片生成事件时调用
-    onImageGenerated(info) {
-      // info: { url, prompt, engine }
-      const result = {
-        text: `🖼️ **场景配图**\n\n${info.prompt}`,
-        type: 'bot',
-        image: { url: info.url, prompt: info.prompt, engine: info.engine || 'AI' },
-        source: 'image',
-      };
-
-      onResult?.(result);
-      return info;
     },
 
     async generateImage(prompt) {

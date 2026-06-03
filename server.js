@@ -46,7 +46,37 @@ const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你�
 - 如果玩家做了很蠢的事，让后果自然发生
 - 用中文回复，保持沉浸感
 
+## 重要：保持故事连续性
+- **禁止主动结束故事或开启新篇章**，除非玩家明确要求"结束冒险"或"开新故事"
+- 持续推动当前剧情发展，保持故事的连贯性
+- 每次回复都必须基于之前的对话历史推进，让故事向前发展
+- 不要跳过时间、不要擅自总结收尾、不要替故事画句号
+
 现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！`;
+
+const SYSTEM_TOKEN_BUDGET = 2800; // system prompt 约占 ~2800 token 预算（实际约 500 字符）
+
+/**
+ * 粗略估算文本 token 数
+ * 中文 ≈ 1.5 token/字符，英文 ≈ 0.25 token/字符
+ */
+function estimateTokens(text) {
+  if (!text) return 0;
+  let cjk = 0, other = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0);
+    // CJK + 日文 + 韩文 Unicode 范围
+    if ((code >= 0x4E00 && code <= 0x9FFF) ||
+        (code >= 0x3040 && code <= 0x309F) || // 日文平假名
+        (code >= 0x30A0 && code <= 0x30FF) || // 日文片假名
+        (code >= 0xAC00 && code <= 0xD7AF)) { // 韩文
+      cjk++;
+    } else {
+      other++;
+    }
+  }
+  return Math.ceil(cjk * 1.5 + other * 0.25);
+}
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -60,14 +90,23 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // 构建 OpenAI 格式的消息列表
-    const chatMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.slice(-30).map(m => ({
-        role: m.type === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      })),
-    ];
+    // Token 感知截断：从后往前取消息，确保不超 28K（留 4K 给回复）
+    const MAX_TOKENS = 28000;
+    const chatMessages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    let used = estimateTokens(SYSTEM_PROMPT);
+    const contextMessages = [];
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const tokens = estimateTokens(messages[i].text);
+      if (used + tokens > MAX_TOKENS && contextMessages.length >= 2) break;
+      used += tokens;
+      contextMessages.unshift({
+        role: messages[i].type === 'user' ? 'user' : 'assistant',
+        content: messages[i].text,
+      });
+    }
+
+    chatMessages.push(...contextMessages);
 
     // 调用 DeepSeek API (流式)
     const response = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {

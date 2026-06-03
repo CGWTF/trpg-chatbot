@@ -884,6 +884,67 @@
   animation: fadeInUp 0.2s ease;
 }
 
+/* 点数追踪条 */
+.char-points-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.char-points-label {
+  color: var(--text-secondary);
+}
+
+.char-points-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--success);
+  min-width: 24px;
+  text-align: center;
+}
+
+.char-points-value.over {
+  color: var(--danger);
+}
+
+.char-points-value.empty {
+  color: var(--accent-light);
+}
+
+.char-points-sep {
+  color: var(--text-muted);
+}
+
+.char-point-limit-input {
+  width: 44px;
+  padding: 2px 4px;
+  background: var(--bg-input);
+  color: var(--accent-light);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+}
+
+.char-point-limit-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.char-points-total-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .char-stats {
   display: flex;
   gap: 8px;
@@ -908,29 +969,63 @@
   min-width: 70px;
 }
 
+.char-stat-base {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  width: 18px;
+  text-align: center;
+}
+
+.char-stat-plus,
+.char-stat-eq {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .char-stat-input {
-  width: 42px;
+  width: 36px;
   padding: 2px 4px;
   background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+  color: var(--accent-light);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   font-size: 13px;
   text-align: center;
   font-family: var(--font-mono);
+  font-weight: 700;
 }
 
 .char-stat-input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-light);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.char-stat-attr {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 20px;
+  text-align: center;
 }
 
 .char-stat-mod {
   font-size: 13px;
   font-family: var(--font-mono);
-  color: var(--accent-light);
+  color: var(--text-muted);
   font-weight: 600;
-  width: 28px;
+  width: 32px;
   text-align: center;
+}
+
+.char-stat-mod.positive {
+  color: var(--success);
+}
+
+.char-stat-mod.negative {
+  color: var(--danger);
 }
 
 .char-quick-checks {
