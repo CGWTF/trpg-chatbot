@@ -51,33 +51,34 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef(null);
 
-  // ── 插件 ──
-  const plugins = useMemo(() => [
-    createDicePlugin({ onResult: (r) => { /* 骰子结果回调 - 可扩展 */ } }),
+  // ── 静态插件 (不依赖 messages, 只创建一次) ──
+  const staticPlugins = useMemo(() => [
+    createDicePlugin(),
     createRulePlugin(),
-    createAIPlugin({
-      apiKey,
-      getMessages: () => messages,
-      onStreamStart: () => { setIsStreaming(true); setStreamingText(''); },
-      onStreamChunk: (text) => setStreamingText(text),
-      onStreamEnd: (aborted) => {
-        setIsStreaming(false);
-        setStreamingText('');
-        abortRef.current = null;
-        if (!aborted) setIsProcessing(false);
-      },
-      onError: (msg) => {
-        addMessage({ text: msg, type: 'system', time: getTime() });
-        setIsStreaming(false);
-        setStreamingText('');
-        setIsProcessing(false);
-      },
-    }),
-    createImagePlugin({
-      onResult: (r) => { /* 图片生成回调 - 可扩展 */ },
-    }),
-  ], [apiKey, messages, addMessage]);
+    createImagePlugin(),
+  ], []);
 
+  // ── 动态插件 (依赖 messages/apiKey, 随对话更新) ──
+  const aiPlugin = useMemo(() => createAIPlugin({
+    apiKey,
+    getMessages: () => messages,
+    onStreamStart: () => { setIsStreaming(true); setStreamingText(''); },
+    onStreamChunk: (text) => setStreamingText(text),
+    onStreamEnd: (aborted) => {
+      setIsStreaming(false);
+      setStreamingText('');
+      abortRef.current = null;
+      if (!aborted) setIsProcessing(false);
+    },
+    onError: (msg) => {
+      addMessage({ text: msg, type: 'system', time: getTime() });
+      setIsStreaming(false);
+      setStreamingText('');
+      setIsProcessing(false);
+    },
+  }), [apiKey, messages, addMessage]);
+
+  const plugins = useMemo(() => [...staticPlugins, aiPlugin], [staticPlugins, aiPlugin]);
   const pipeline = usePipeline(plugins);
 
   // ── 图片配置 ──
@@ -107,7 +108,7 @@ export default function App() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    pipeline.run('onBeforeAI', userText);
+    pipeline.run('beforeAI', userText);
     const result = await aiPlugin.sendToAI(userText, controller);
 
     setIsStreaming(false);
@@ -115,7 +116,7 @@ export default function App() {
     abortRef.current = null;
 
     if (result) {
-      pipeline.run('onAfterAI', result);
+      pipeline.run('afterAI', result);
       addMessage({ text: result, type: 'bot', time: getTime() });
     }
     setIsProcessing(false);

@@ -4,13 +4,12 @@ import { getImageConfig } from '../utils/storage';
 /**
  * 图片生成插件
  * beforeSend: 拦截 /image 指令 → 短路
- * onImageGenerated: 图片生成后回调
+ * onImageGenerated: 外部回调 (App.jsx 通过 pipeline.run 调用)
  */
-export default function createImagePlugin({ onResult } = {}) {
+export default function createImagePlugin() {
   return {
     name: 'image',
 
-    /** 拦截 /image /img 指令 → 短路 */
     beforeSend(input) {
       const text = input.trim();
       if (text.startsWith('/image ') || text.startsWith('/img ')) {
@@ -23,12 +22,6 @@ export default function createImagePlugin({ onResult } = {}) {
       return input;
     },
 
-    /** 图片生成完成后回调 */
-    onImageGenerated(info) {
-      onResult?.(info);
-    },
-
-    /** 执行图片生成 */
     async generateImage(prompt) {
       const enhanced = enhancePrompt(prompt);
       const { blobUrl } = await fetchGeneratedImage(enhanced);
