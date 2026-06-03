@@ -3,11 +3,13 @@
  * beforeSend: 无短路 (透传)
  * fallback: 所有未匹配消息走 AI
  * beforeAI / afterAI: AI 请求前后的生命周期
+ *
+ * v2: 不再依赖 getMessages 闭包 — sendToAI 直接接收消息列表
  */
 
 const API_URL = 'http://localhost:3001/api/chat';
 
-export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onStreamChunk, onStreamEnd, onError }) {
+export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamEnd, onError }) {
   return {
     name: 'ai',
 
@@ -25,10 +27,6 @@ export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onS
 
     /** 默认处理 → 标记为 AI 请求 */
     fallback(input) {
-      if (!apiKey) {
-        onError?.('⚠️ **需要设置 API Key 才能使用故事模式！**\n\n请点击右上角的 ⚙️ 设置按钮，输入你的 DeepSeek API Key。');
-        return false;
-      }
       return { text: input, type: 'ai-request', source: 'ai' };
     },
 
@@ -44,11 +42,18 @@ export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onS
       return text;
     },
 
-    /** 发送流式 AI 请求 */
-    async sendToAI(userText, abortController) {
+    /**
+     * 发送流式 AI 请求
+     * @param {string} userText - 用户消息
+     * @param {AbortController} abortController - 取消控制器
+     * @param {object} options
+     * @param {Array} options.messages - 当前对话消息列表（最新版，非 stale）
+     * @param {string} options.apiKey - DeepSeek API Key
+     */
+    async sendToAI(userText, abortController, { messages, apiKey } = {}) {
       if (!apiKey) return null;
 
-      let chatMessages = getMessages()
+      let chatMessages = messages
         .filter(m => m.type === 'user' || m.type === 'bot')
         .map(m => ({ type: m.type === 'user' ? 'user' : 'assistant', text: m.text }));
       chatMessages.push({ type: 'user', text: userText });
