@@ -1,6 +1,8 @@
 /**
  * AI 故事引擎插件
- * 生命周期: fallback, beforeAIRequest, afterAIResponse
+ * beforeSend: 无短路 (透传)
+ * fallback: 所有未匹配消息走 AI
+ * beforeAI / afterAI: AI 请求前后的生命周期
  */
 
 const API_URL = 'http://localhost:3001/api/chat';
@@ -9,26 +11,38 @@ export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onS
   return {
     name: 'ai',
 
-    // 所有非骰子非规则的消息，走到这里作为 AI 对话
+    /** 透传，不做拦截 */
+    beforeSend(input) { return input; },
+
+    /** afterSend 回调 */
+    afterSend(input, result) { /* 可扩展 */ },
+
+    /** AI 请求前 */
+    beforeAI(messages) { return messages; },
+
+    /** AI 回复后 */
+    afterAI(text) { return text; },
+
+    /** 默认处理 → 标记为 AI 请求 */
     fallback(input) {
       if (!apiKey) {
         onError?.('⚠️ **需要设置 API Key 才能使用故事模式！**\n\n请点击右上角的 ⚙️ 设置按钮，输入你的 DeepSeek API Key。');
         return false;
       }
-      // 返回特殊标记，让调用方知道需要异步处理 AI
       return { text: input, type: 'ai-request', source: 'ai' };
     },
 
-    // 发送 AI 请求并流式读取
+    /** 发送流式 AI 请求 */
     async sendToAI(userText, abortController) {
       if (!apiKey) return null;
 
-      const chatMessages = getMessages()
+      let chatMessages = getMessages()
         .filter(m => m.type === 'user' || m.type === 'bot')
         .map(m => ({ type: m.type === 'user' ? 'user' : 'assistant', text: m.text }));
       chatMessages.push({ type: 'user', text: userText });
 
-      // beforeAIRequest 钩子
+      // beforeAI 钩子
+      chatMessages = this.beforeAI(chatMessages);
       onStreamStart?.();
 
       try {
@@ -56,10 +70,12 @@ export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onS
           onStreamChunk?.(full);
         }
 
+        // afterAI 钩子
+        full = this.afterAI(full) || full;
         return full || '(AI 没有返回内容)';
       } catch (err) {
         if (err.name === 'AbortError') {
-          onStreamEnd?.(true); // aborted
+          onStreamEnd?.(true);
         } else {
           onError?.(`❌ 故事引擎连接失败: ${err.message}`);
         }

@@ -2,37 +2,39 @@ import { rollDice, formatDiceResult } from '../utils/dice';
 
 /**
  * 骰子插件
- * 生命周期: beforeProcess, onDiceRoll
+ * beforeSend: 拦截 /r 指令
+ * onDiceRoll: 自然语言投骰检测
+ * afterSend: 骰子结果回调
  */
-export default function createDicePlugin({ onResult }) {
+export default function createDicePlugin({ onResult } = {}) {
   return {
     name: 'dice',
 
-    // 在消息处理前检测 /r 指令
-    beforeProcess(input) {
+    /** 拦截 /r 和 /roll 指令 → 短路 */
+    beforeSend(input) {
       const text = input.trim();
-
-      // /r 或 /roll 指令
       if (text.startsWith('/r ') || text.startsWith('/roll ')) {
         const notation = text.replace(/^\/(r|roll)\s*/, '').trim();
-        if (notation) {
-          const result = rollDice(notation);
-          const formatted = formatDiceResult(result);
-          onResult?.({ text: formatted, type: 'dice', notation });
-          return { text: formatted, type: 'dice', notation, source: 'dice' };
-        }
+        if (!notation) return input;
+
+        const result = rollDice(notation);
+        const formatted = formatDiceResult(result);
+        const msg = { text: formatted, type: 'dice', notation, source: 'dice' };
+        onResult?.(msg);
+        return { result: msg };  // 短路
       }
-      return text;
+      return input;
     },
 
-    // 自然语言投骰检测
+    /** 自然语言 "投2d6" */
     onDiceRoll(input) {
       const match = input.match(/(?:投|roll?|丢)\s*(\d*d\d+[+-]?\d*)/i);
       if (match && /[投roll丢骰]/i.test(input)) {
         const result = rollDice(match[1]);
         const formatted = formatDiceResult(result);
-        onResult?.({ text: formatted, type: 'dice', notation: match[1] });
-        return { text: formatted, type: 'dice', notation: match[1], source: 'dice' };
+        const msg = { text: formatted, type: 'dice', notation: match[1], source: 'dice' };
+        onResult?.(msg);
+        return msg;
       }
       return input;
     },

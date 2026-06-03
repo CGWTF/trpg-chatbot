@@ -1,6 +1,7 @@
 /**
  * 规则问答插件
- * 生命周期: onRuleQuery, beforeProcess (拦截 /help, /rp)
+ * beforeSend: 拦截 /help /rp 指令 → 短路
+ * onRuleQuery: 规则知识库匹配
  */
 
 const knowledgeBase = {
@@ -19,10 +20,8 @@ const knowledgeBase = {
   '生命骰': '生命骰(Hit Dice): 法师 d6, 游荡者 d8, 战士 d10, 野蛮人 d12。',
   'coc': '克苏鲁的呼唤(CoC): 使用 d100 系统。技能值 ≤ 技能等级为成功。大成功: ≤ 技能等级的1/5。大失败: ≥ 96。',
   'san': 'SAN值(理智值): 初始 = POW，遭遇恐怖事物时进行 SAN 检定，失败损失理智值。降至0则永久疯狂。',
-  'kp': 'KP(守秘人/Keeper): CoC中的主持人。',
-  'dm': 'DM(地下城主/Dungeon Master): D&D中的主持人。',
-  'gm': 'GM(Game Master): 游戏主持人。',
-  'pc': 'PC(Player Character): 玩家角色。',
+  'kp': 'KP(守秘人/Keeper): CoC中的主持人。', 'dm': 'DM(地下城主/Dungeon Master): D&D中的主持人。',
+  'gm': 'GM(Game Master): 游戏主持人。', 'pc': 'PC(Player Character): 玩家角色。',
   'npc': 'NPC(Non-Player Character): 非玩家角色。',
   '阵营': 'D&D 阵营(Alignment): 秩序/中立/混乱 × 善良/中立/邪恶 = 九宫格。',
   '属性检定': '属性检定(Ability Check): d20 + 属性调整值 vs DC。',
@@ -87,38 +86,37 @@ export default function createRulePlugin() {
   return {
     name: 'rule',
 
-    beforeProcess(input) {
+    /** 拦截 /help /rp 指令 → 短路 */
+    beforeSend(input) {
       const text = input.trim();
 
       if (text === '/help') {
-        return {
+        return { result: {
           text: `📜 **可用指令:**
 🎲 \`/r 2d6\` \`/r 1d20+5\` — 投骰
 📖 直接问规则问题 — "AC怎么算"
 🖼️ \`/image 描述\` — 生成图片
 🎭 \`/rp\` — 随机扮演灵感
 📋 \`/help\` \`/clear\``,
-          type: 'system',
-          source: 'rule',
-        };
+          type: 'system', source: 'rule',
+        }};
       }
 
       if (text === '/rp') {
-        return {
+        return { result: {
           text: rpPrompts[Math.floor(Math.random() * rpPrompts.length)],
-          type: 'bot',
-          source: 'rule',
-        };
+          type: 'bot', source: 'rule',
+        }};
       }
 
-      return text;
+      return input;
     },
 
+    /** 规则知识库匹配 */
     onRuleQuery(input) {
-      const lower = input.toLowerCase().trim();
-
       if (!isRuleQuestion(input)) return input;
 
+      const lower = input.toLowerCase().trim();
       for (const [key, keywords] of Object.entries(keywordMap)) {
         if (keywords.some(kw => lower.includes(kw))) {
           return { text: knowledgeBase[key], type: 'bot', source: 'rule' };

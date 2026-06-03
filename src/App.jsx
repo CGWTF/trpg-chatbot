@@ -127,7 +127,6 @@ export default function App() {
     const result = rollDice(`1d20${mod >= 0 ? '+' : ''}${mod}`);
     const diceText = formatDiceResult(result);
 
-    pipeline.run('onBeforeSend', `/r 1d20${mod >= 0 ? '+' : ''}${mod}`);
     addMessage({ text: diceText, type: 'dice', time: getTime() });
 
     if (apiKey) {
@@ -136,7 +135,7 @@ export default function App() {
       setIsProcessing(true);
       callAI(ctx);
     }
-    pipeline.run('onAfterSend', ctx || diceText, { type: 'dice' });
+    pipeline.run('afterSend', diceText, { type: 'dice' });
   }, [charStats, apiKey, addMessage, callAI, pipeline]);
 
   // ── 发送消息 ──
@@ -144,9 +143,7 @@ export default function App() {
     if (text === '/clear') { newStory(); return; }
     if (abortRef.current) abortRef.current.abort();
 
-    pipeline.run('onBeforeSend', text);
-
-    // 走 pipeline 处理
+    // 走 pipeline 处理 (内部已调用 beforeSend)
     const result = pipeline.process(text);
     if (!result) { setIsProcessing(false); return; }
 
@@ -189,7 +186,7 @@ export default function App() {
       setIsProcessing(false);
     }
 
-    pipeline.run('onAfterSend', text, result);
+    pipeline.run('afterSend', text, result);
   }, [addMessage, apiKey, callAI, newStory, pipeline, plugins]);
 
   // ── 存档变更回调 ──
