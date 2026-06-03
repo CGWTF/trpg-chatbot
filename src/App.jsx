@@ -52,7 +52,13 @@ export default function App() {
     if (currentStoryId) {
       const stories = getAllStories();
       const found = stories.find(s => s.id === currentStoryId);
-      if (found) return found.messages;
+      if (found) {
+        // 清理失效的 blob URL
+        return found.messages.map(m => {
+          if (m.image?.url?.startsWith('blob:')) return { ...m, image: null };
+          return m;
+        });
+      }
     }
     const newStory = createStory(WELCOME_MSG);
     setCurrentStoryIdState(newStory.id);
@@ -139,7 +145,7 @@ export default function App() {
           image: {
             url: imageData.url,
             prompt: imageData.prompt,
-            engine: imageData.engine || 'Pollinations.ai (Flux)',
+            engine: imageData.engine || 'AI',
           },
         };
       }
@@ -159,7 +165,9 @@ export default function App() {
         image: {
           url: blobUrl,
           prompt: enhanced,
-          engine: imageConfig.provider === 'pollinations' ? 'Pollinations.ai' : imageConfig.provider,
+          engine: imageConfig.provider === 'openai' ? `OpenAI (${imageConfig.model || 'gpt-image'})`
+            : imageConfig.provider === 'custom' ? (imageConfig.model || 'Custom API')
+            : 'Pollinations.ai (Flux)',
         },
       });
     } catch (err) {

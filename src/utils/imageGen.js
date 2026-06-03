@@ -33,7 +33,10 @@ export async function fetchGeneratedImage(prompt) {
   }
 
   const blob = await response.blob();
-  return URL.createObjectURL(blob);
+  const engineName = config.provider === 'openai' ? `OpenAI (${config.model || 'gpt-image'})`
+    : config.provider === 'custom' ? (config.model || 'Custom API')
+    : 'Pollinations.ai (Flux)';
+  return { blobUrl: URL.createObjectURL(blob), engine: engineName };
 }
 
 /**

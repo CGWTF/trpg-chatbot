@@ -114,6 +114,18 @@ export function createStory(welcomeMsg) {
 }
 
 /**
+ * 清理无效的 blob URL (刷新页面后失效)
+ */
+function cleanMessages(messages) {
+  return messages.map(m => {
+    if (m.image?.url?.startsWith('blob:')) {
+      return { ...m, image: null };
+    }
+    return m;
+  });
+}
+
+/**
  * 保存当前故事
  */
 export function saveStory(id, messages) {
@@ -121,7 +133,7 @@ export function saveStory(id, messages) {
   const index = stories.findIndex(s => s.id === id);
   if (index === -1) return;
 
-  stories[index].messages = messages;
+  stories[index].messages = cleanMessages(messages);
   stories[index].title = generateTitle(messages);
   stories[index].updatedAt = new Date().toISOString();
 

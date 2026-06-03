@@ -18,7 +18,7 @@ export default function Message({ msg, onImageGenerate }) {
     try {
       const scenePrompt = extractScenePrompt(msg.text);
       const enhanced = enhancePrompt(scenePrompt);
-      const blobUrl = await fetchGeneratedImage(enhanced);
+      const { blobUrl, engine } = await fetchGeneratedImage(enhanced);
 
       setImgBlobUrl(blobUrl);
       setImgLoading(false);
@@ -27,6 +27,7 @@ export default function Message({ msg, onImageGenerate }) {
         onImageGenerate({
           url: blobUrl,
           prompt: enhanced,
+          engine,
           messageIndex: msg._index,
         });
       }
