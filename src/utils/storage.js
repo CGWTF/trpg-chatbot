@@ -1,0 +1,153 @@
+/**
+ * 故事存档管理 & 图片 API 配置
+ * 所有数据保存在 localStorage 中
+ */
+
+const STORAGE_KEY = 'trpg_stories';
+const CURRENT_KEY = 'trpg_current_story';
+const IMAGE_CONFIG_KEY = 'trpg_image_config';
+
+// ========== 图片 API 配置 ==========
+
+const DEFAULT_IMAGE_CONFIG = {
+  provider: 'pollinations', // pollinations | openai | custom
+  apiKey: '',
+  baseUrl: '',
+  model: '',
+  size: '1024x1024',
+};
+
+export function getImageConfig() {
+  try {
+    const raw = localStorage.getItem(IMAGE_CONFIG_KEY);
+    return raw ? { ...DEFAULT_IMAGE_CONFIG, ...JSON.parse(raw) } : DEFAULT_IMAGE_CONFIG;
+  } catch {
+    return DEFAULT_IMAGE_CONFIG;
+  }
+}
+
+export function saveImageConfig(config) {
+  localStorage.setItem(IMAGE_CONFIG_KEY, JSON.stringify(config));
+}
+
+// ========== 故事管理 ==========
+
+/**
+ * 获取所有存档
+ */
+export function getAllStories() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 保存所有存档
+ */
+function saveAllStories(stories) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories));
+}
+
+/**
+ * 获取当前故事 ID
+ */
+export function getCurrentStoryId() {
+  return localStorage.getItem(CURRENT_KEY);
+}
+
+/**
+ * 设置当前故事 ID
+ */
+export function setCurrentStoryId(id) {
+  localStorage.setItem(CURRENT_KEY, id);
+}
+
+/**
+ * 获取当前故事
+ */
+export function getCurrentStory() {
+  const id = getCurrentStoryId();
+  if (!id) return null;
+  const stories = getAllStories();
+  return stories.find(s => s.id === id) || null;
+}
+
+/**
+ * 生成故事标题 (取第一条用户消息的前20字)
+ */
+export function generateTitle(messages) {
+  const firstUser = messages.find(m => m.type === 'user');
+  if (firstUser) {
+    const text = firstUser.text.replace(/\/\w+\s*/g, '').trim();
+    return text.substring(0, 20) || '未命名冒险';
+  }
+  return '新冒险';
+}
+
+/**
+ * 生成唯一 ID
+ */
+function generateId() {
+  return 'story_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+}
+
+/**
+ * 创建新故事
+ */
+export function createStory(welcomeMsg) {
+  const id = generateId();
+  const story = {
+    id,
+    title: '新冒险',
+    messages: [welcomeMsg],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const stories = getAllStories();
+  stories.unshift(story);
+  saveAllStories(stories);
+  setCurrentStoryId(id);
+  return story;
+}
+
+/**
+ * 保存当前故事
+ */
+export function saveStory(id, messages) {
+  const stories = getAllStories();
+  const index = stories.findIndex(s => s.id === id);
+  if (index === -1) return;
+
+  stories[index].messages = messages;
+  stories[index].title = generateTitle(messages);
+  stories[index].updatedAt = new Date().toISOString();
+
+  // 移到最前面
+  const [story] = stories.splice(index, 1);
+  stories.unshift(story);
+
+  saveAllStories(stories);
+}
+
+/**
+ * 删除故事
+ */
+export function deleteStory(id) {
+  const stories = getAllStories().filter(s => s.id !== id);
+  saveAllStories(stories);
+  if (getCurrentStoryId() === id) {
+    setCurrentStoryId(null);
+  }
+}
+
+/**
+ * 切换到指定故事
+ */
+export function switchToStory(id) {
+  setCurrentStoryId(id);
+  const stories = getAllStories();
+  return stories.find(s => s.id === id) || null;
+}
