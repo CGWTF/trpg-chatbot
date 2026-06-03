@@ -76,7 +76,7 @@ export default function App() {
       setStreamingText('');
       setIsProcessing(false);
     },
-  }), [apiKey, messages, addMessage]);
+  }), [apiKey, addMessage]);
 
   const plugins = useMemo(() => [...staticPlugins, aiPlugin], [staticPlugins, aiPlugin]);
   const pipeline = usePipeline(plugins);
@@ -108,7 +108,7 @@ export default function App() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    pipeline.run('beforeAI', userText);
+    pipeline.run('onBeforeAI', userText);
     const result = await aiPlugin.sendToAI(userText, controller);
 
     setIsStreaming(false);
@@ -116,7 +116,7 @@ export default function App() {
     abortRef.current = null;
 
     if (result) {
-      pipeline.run('afterAI', result);
+      pipeline.run('onAfterAI', result);
       addMessage({ text: result, type: 'bot', time: getTime() });
     }
     setIsProcessing(false);

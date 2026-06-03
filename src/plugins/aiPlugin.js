@@ -32,6 +32,18 @@ export default function createAIPlugin({ apiKey, getMessages, onStreamStart, onS
       return { text: input, type: 'ai-request', source: 'ai' };
     },
 
+    // pipeline 钩子：AI 请求前
+    onBeforeAI(input) {
+      onStreamStart?.();
+      return input;
+    },
+
+    // pipeline 钩子：AI 请求后
+    onAfterAI(text) {
+      onStreamEnd?.(false);
+      return text;
+    },
+
     /** 发送流式 AI 请求 */
     async sendToAI(userText, abortController) {
       if (!apiKey) return null;

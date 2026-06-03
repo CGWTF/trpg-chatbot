@@ -22,6 +22,20 @@ export default function createImagePlugin() {
       return input;
     },
 
+    // 当外部（App）通过 pipeline 触发图片生成事件时调用
+    onImageGenerated(info) {
+      // info: { url, prompt, engine }
+      const result = {
+        text: `🖼️ **场景配图**\n\n${info.prompt}`,
+        type: 'bot',
+        image: { url: info.url, prompt: info.prompt, engine: info.engine || 'AI' },
+        source: 'image',
+      };
+
+      onResult?.(result);
+      return info;
+    },
+
     async generateImage(prompt) {
       const enhanced = enhancePrompt(prompt);
       const { blobUrl } = await fetchGeneratedImage(enhanced);
