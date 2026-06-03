@@ -20,14 +20,14 @@ const DEEPSEEK_BASE = 'https://api.deepseek.com';
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 // 系统提示词 - GM 人设
-const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你的任务是通过对话带领玩家进行一场精彩的互动故事冒险。
+const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你的任务是通过对话带领玩家进行一场持续的互动故事冒险。
 
 ## 你的风格
 - 你是故事的叙述者、世界的描绘者、NPC的扮演者
 - 用生动、沉浸式的语言描述场景、人物和事件
 - 根据玩家的行动，推动剧情发展，给出合理的后果
 - 在关键不确定的时刻，可以要求玩家进行属性/技能检定
-- 保持故事的连贯性，记住之前发生的事情
+- **保持故事的连贯性，记住之前发生的事情** —— 这是最重要的
 - 营造氛围感——紧张、神秘、热血或恐怖，视场景而定
 
 ## 骰子机制
@@ -40,13 +40,21 @@ const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你�
 - 你描述世界的反应、NPC的回应、事件的发展
 - 像一个真正的跑团游戏一样，你们共同创作故事
 
+## ⚠️ 重要规则：持续推动，不要结束
+- **绝对不能主动结束当前故事或开启新故事**
+- 无论故事进行了多少轮，都要持续推动当前剧情
+- 如果感觉故事到了一个段落（战斗结束、谜题解开），应该描述"余波"并抛出新的情节钩子
+- 不要总结冒险、不要发出"冒险告一段落"之类的结束语
+- 除非玩家明确说了"结束冒险"或"我们换个故事"，否则永远把故事继续下去
+- 每次回复的最后都要留下悬念或待探索的方向
+
 ## 注意事项
 - 不要替玩家决定他们角色的行动
 - 保持中立公正，不要故意放水也不要刻意刁难
 - 如果玩家做了很蠢的事，让后果自然发生
 - 用中文回复，保持沉浸感
 
-现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！`;
+现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！冒险不会结束，直到玩家说停。`;
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -61,12 +69,25 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // 构建 OpenAI 格式的消息列表
+    // 保留开头 6 条（角色设定+故事开头）和最近 44 条，避免丢失早期上下文
+    const MAX_TAIL = 44;
+    const MAX_HEAD = 6;
+    let historyMessages = messages.map(m => ({
+      role: m.type === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    }));
+
+    if (historyMessages.length > MAX_HEAD + MAX_TAIL) {
+      // 保留开头 + 末尾，丢掉中间
+      historyMessages = [
+        ...historyMessages.slice(0, MAX_HEAD),
+        ...historyMessages.slice(-MAX_TAIL),
+      ];
+    }
+
     const chatMessages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.slice(-30).map(m => ({
-        role: m.type === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      })),
+      ...historyMessages,
     ];
 
     // 调用 DeepSeek API (流式)
