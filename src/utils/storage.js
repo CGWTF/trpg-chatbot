@@ -47,7 +47,7 @@ export function getAllStories() {
 /**
  * 保存所有存档
  */
-function saveAllStories(stories) {
+export function saveAllStories(stories) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stories));
 }
 

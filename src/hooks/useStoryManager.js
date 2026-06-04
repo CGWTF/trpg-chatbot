@@ -1,87 +1,133 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   getAllStories,
   getCurrentStoryId,
+  setCurrentStoryId,
+  saveAllStories,
   createStory,
-  saveStory,
   deleteStory,
   switchToStory,
 } from '../utils/storage';
 
-/** 批量 revoke messages 中的 blob URL */
-function revokeMessageBlobs(msgs) {
-  msgs.forEach(m => {
-    if (m.image?.url?.startsWith('blob:')) {
-      URL.revokeObjectURL(m.image.url);
-    }
-  });
-}
-
 /**
- * 故事存档管理器
- * 管理消息、存档列表、增删切换、自动保存
+ * 故事存档管理器（写穿模式）
+ *
+ * React state 是唯一数据源；localStorage 是写穿缓存，仅在 mount 时读取、
+ * 变更时写入。不再从 localStorage 读回同步 UI，消除级联 render。
  */
 export default function useStoryManager(welcomeMsg) {
-  const [stories, setStories] = useState(getAllStories);
-  const [currentId, setCurrentId] = useState(getCurrentStoryId);
-
-  // 初始化消息
-  const [messages, setMessages] = useState(() => {
-    if (currentId) {
-      const found = getAllStories().find(s => s.id === currentId);
-      if (found) {
-        return cleanBlobs(found.messages);
-      }
+  // ── 初始化：一次性从 localStorage 读取 ──
+  const [stories, setStories] = useState(() => {
+    const all = getAllStories();
+    // 如果没有存档或当前 ID 对应存档不存在，就地创建一个
+    const currentId = getCurrentStoryId();
+    if (!all.length || !all.find((s) => s.id === currentId)) {
+      createStory(welcomeMsg); // 内部已写 localStorage
+      return getAllStories();
     }
-    const s = createStory(welcomeMsg);
-    setCurrentId(s.id);
-    setStories(getAllStories());
-    return s.messages;
+    return all;
   });
 
-  // 自动保存
-  useEffect(() => {
-    if (currentId && messages.length > 0) {
-      saveStory(currentId, messages);
-      setStories(getAllStories());
-    }
-  }, [messages, currentId]);
+  const [currentId, setCurrentId] = useState(() => {
+    const id = getCurrentStoryId();
+    const all = getAllStories();
+    return id && all.find((s) => s.id === id) ? id : all[0]?.id || '';
+  });
 
-  const addMessage = useCallback((msg) => {
-    setMessages(prev => [...prev, msg]);
-  }, []);
+  // 用 ref 追踪 render 次数，跳过首次 mount 的写回
+  const mountedRef = useRef(false);
+
+  // ── 写穿：stories 变更后同步到 localStorage ──
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return; // mount 时 localStorage 已有最新数据，跳过
+    }
+    saveAllStories(stories);
+    setCurrentStoryId(currentId);
+  }, [stories, currentId]);
+
+  // ── 当前故事的消息 ──
+  const currentStory = stories.find((s) => s.id === currentId);
+  const messages = currentStory ? currentStory.messages : [welcomeMsg];
+
+  // ── 写操作：同时更新 React state 和 localStorage ──
+
+  const addMessage = useCallback(
+    (msg) => {
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id !== currentId) return s;
+          const newMessages = [...s.messages, msg];
+          return {
+            ...s,
+            messages: newMessages,
+            title: generateTitle(newMessages),
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+    },
+    [currentId]
+  );
+
+  // 支持批量设置消息（图片回调等场景）
+  const setMessages = useCallback(
+    (updater) => {
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id !== currentId) return s;
+          const newMessages =
+            typeof updater === 'function' ? updater(s.messages) : updater;
+          return {
+            ...s,
+            messages: newMessages,
+            title: generateTitle(newMessages),
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+    },
+    [currentId]
+  );
 
   const newStory = useCallback(() => {
-    const s = createStory(welcomeMsg);
-    setCurrentId(s.id);
-    setMessages(s.messages);
-    setStories(getAllStories());
+    const story = createStory(welcomeMsg);
+    setStories((prev) => [story, ...prev]);
+    setCurrentId(story.id);
   }, [welcomeMsg]);
 
   const switchStory = useCallback((id) => {
     const s = switchToStory(id);
     if (s) {
       setCurrentId(id);
-      // 同 session 内 blob URL 仍有效，不需要 cleanBlobs
-      setMessages(s.messages);
     }
   }, []);
 
-  const removeStory = useCallback((id) => {
-    // 先取到要被删的故事的 messages，再 revoke
-    const stories = getAllStories();
-    const target = stories.find(s => s.id === id);
-    if (target) revokeMessageBlobs(target.messages);
+  const removeStory = useCallback(
+    (id) => {
+      // revoke blob URLs before deleting
+      const target = stories.find((s) => s.id === id);
+      if (target) {
+        target.messages.forEach((m) => {
+          if (m.image?.url?.startsWith('blob:')) {
+            URL.revokeObjectURL(m.image.url);
+          }
+        });
+      }
 
-    deleteStory(id);
-    setStories(getAllStories());
-    if (id === currentId) {
-      const s = createStory(welcomeMsg);
-      setCurrentId(s.id);
-      setMessages(s.messages);
-      setStories(getAllStories());
-    }
-  }, [currentId, welcomeMsg]);
+      deleteStory(id);
+      setStories((prev) => prev.filter((s) => s.id !== id));
+
+      if (id === currentId) {
+        // 删的是当前故事 → 创建新的
+        const story = createStory(welcomeMsg);
+        setStories((prev) => [story, ...prev]);
+        setCurrentId(story.id);
+      }
+    },
+    [currentId, stories, welcomeMsg]
+  );
 
   return {
     stories,
@@ -95,10 +141,12 @@ export default function useStoryManager(welcomeMsg) {
   };
 }
 
-/** 清理失效的 blob URL */
-function cleanBlobs(msgs) {
-  return msgs.map(m => {
-    if (m.image?.url?.startsWith('blob:')) return { ...m, image: null };
-    return m;
-  });
+/** 生成故事标题 (取第一条用户消息的前20字) */
+function generateTitle(messages) {
+  const firstUser = messages.find((m) => m.type === 'user');
+  if (firstUser) {
+    const text = firstUser.text.replace(/\/\w+\s*/g, '').trim();
+    return text.substring(0, 20) || '未命名冒险';
+  }
+  return '新冒险';
 }
