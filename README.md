@@ -36,6 +36,24 @@ DEEPSEEK_API_KEY=sk-xxx
 
 在设置面板中选择引擎并填入 Key 即可。
 
+## 🎲 游戏流程
+
+```
+玩家描述动作（"我试着悄悄穿过走廊"）
+  ↓
+AI 回复检定请求（【检定请求：DEX，DC12】请投一个d20进行潜行检定）
+  ↓
+输入框上方出现紫色横幅 + 快速检定按钮高亮
+  ↓
+点击高亮按钮 → 骰子投掷 + 分级标签（🌟大成功 / ✅成功 / ❌失败 / 💀大失败）
+  ↓
+AI 根据检定结果叙事
+```
+
+- **快速检定按钮**：输入框上方，显示角色属性加值，AI 请求检定时对应按钮发光
+- **快速投骰按钮**：通用骰子（d20/d100/2d6 等），不含属性修正
+- **角色属性面板**：右上角 📋 展开，可分配属性加值
+
 ## 📁 项目结构
 
 ```
@@ -44,7 +62,7 @@ DEEPSEEK_API_KEY=sk-xxx
 │   ├── hooks/          # usePipeline / useStoryManager / useLocalStorageState
 │   ├── plugins/        # dice / rule / ai / image 四个插件
 │   ├── components/     # ChatWindow / Message / CharPanel / StorySidebar
-│   └── utils/          # 骰子引擎 / 图片生成 / 存档工具
+│   └── utils/          # 骰子引擎 / 检定上下文 / 图片生成 / 存档工具
 └── .claude/            # /start skill + pre-commit hook
 ```
 
