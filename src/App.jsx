@@ -208,11 +208,11 @@ export default function App() {
       addMessage({ text: ctx, type: 'user', time: getTime(), _isDiceContext: true });
       setPendingRollRequest(null); // 消耗检定请求
       setIsProcessing(true);
-      // 传入包含刚添加消息的最新列表，避免闭包过期
-      callAI(ctx, [...messages, { text: diceText, type: 'dice', time: getTime() }, { text: ctx, type: 'user', time: getTime(), _isDiceContext: true }]);
+      // sendToAI 自己会把 userText(ctx) 追加为最后一条 user 消息，不需要在 customMessages 里传
+      callAI(ctx);
     }
     pipeline.run('afterSend', diceText, { type: 'dice' });
-  }, [charStats, pendingRollRequest, apiKey, addMessage, callAI, pipeline, messages]);
+  }, [charStats, pendingRollRequest, apiKey, addMessage, callAI, pipeline]);
 
   // ── 发送消息 ──
   const handleSend = useCallback(async (text) => {
@@ -264,8 +264,8 @@ export default function App() {
           addMessage({ text: ctx, type: 'user', time: getTime(), _isDiceContext: true });
           setPendingRollRequest(null); // 消耗检定请求
           setIsProcessing(true);
-          // 传入包含刚添加消息的最新列表，避免闭包过期
-          callAI(ctx, [...messages, { text: formatDiceResult(rawResult) + outcomeLabel, type: 'dice', time: getTime() }, { text: ctx, type: 'user', time: getTime(), _isDiceContext: true }]);
+          // sendToAI 自己会把 userText(ctx) 追加为最后一条 user 消息
+          callAI(ctx);
         }, 300);
       } else {
         setIsProcessing(false);
@@ -294,7 +294,7 @@ export default function App() {
     }
 
     pipeline.run('afterSend', text, result);
-  }, [addMessage, apiKey, callAI, newStory, pipeline, plugins, pendingRollRequest, charStats, messages]);
+  }, [addMessage, apiKey, callAI, newStory, pipeline, plugins, pendingRollRequest, charStats]);
 
   // ── 存档变更回调 ──
   const onNewWithHook = () => {
