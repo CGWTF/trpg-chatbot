@@ -87,8 +87,9 @@ export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamE
           onStreamChunk?.(full);
         }
 
-        // afterAI 钩子
+        // afterAI 钩子（文本变换）+ onStreamEnd 回调（副作用通知）
         full = this.afterAI(full) || full;
+        onStreamEnd?.(false, full);
         return full || '(AI 没有返回内容)';
       } catch (err) {
         if (err.name === 'AbortError') {
