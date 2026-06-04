@@ -78,6 +78,7 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
         return;
       }
 
+      setIsProcessing(true);
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -96,7 +97,7 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
       }
       setIsProcessing(false);
     },
-    [apiKey, messages, addMessage, aiPlugin]
+    [apiKey, messages, addMessage, aiPlugin, setIsProcessing]
   );
 
   return {

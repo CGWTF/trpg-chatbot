@@ -178,7 +178,7 @@ export function parseAIForRollRequest(text) {
   }
 
   // 去除末尾非中文标点（如 。！？）全角括号等），避免干扰 CJK 匹配
-  suffix = suffix.replace(/[。！？、，；：）\)」』\s]+$/g, '');
+  suffix = suffix.replace(/[。！？、，；：）)」』\s]+$/g, '');
 
   const skillMatch = suffix.match(/([一-鿿]{1,6})$/);
   const skill = skillMatch ? skillMatch[1] : suffix.trim();

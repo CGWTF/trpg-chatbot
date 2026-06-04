@@ -109,6 +109,7 @@ export default function App() {
           notation: result.notation || text,
           sourceText: text,
         });
+        if (!apiKey) setIsProcessing(false);
       } else if (result.source === 'rule') {
         addMessage({ ...result, time: getTime() });
         setIsProcessing(false);
@@ -136,7 +137,7 @@ export default function App() {
         setIsProcessing(false);
       }
     },
-    [addMessage, callAI, newStory, pipeline, plugins, resolveDiceRoll, abortRef, setIsProcessing]
+    [addMessage, apiKey, callAI, newStory, pipeline, plugins, resolveDiceRoll, abortRef, setIsProcessing]
   );
 
   // ── 新冒险 ──
