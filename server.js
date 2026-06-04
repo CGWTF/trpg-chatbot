@@ -12,7 +12,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '.env') });
 
 const app = express();
-app.use(cors());
+
+// CORS: 仅允许本地开发环境访问（Vite 默认 5173，及任意 localhost 端口）
+const ALLOWED_ORIGINS = [
+  /^http:\/\/localhost:\d+$/,
+  /^http:\/\/127\.0\.0\.1:\d+$/,
+];
+app.use(cors({
+  origin(origin, cb) {
+    // 允许无 origin 的请求（如直接 curl、server-to-server）
+    if (!origin) return cb(null, true);
+    const ok = ALLOWED_ORIGINS.some((pat) => pat.test(origin));
+    if (ok) return cb(null, true);
+    cb(new Error(`CORS blocked: ${origin}`));
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
 
 const PORT = process.env.PORT || 3001;
@@ -299,12 +313,63 @@ app.post('/api/chat', async (req, res) => {
 const IMAGE_CACHE = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
+// 允许的图片 API 域名（防止 SSRF 攻击）
+const ALLOWED_IMAGE_HOSTS = [
+  'api.openai.com',
+  'api.deepseek.com',
+  'image.pollinations.ai',
+  /^.*\.openai\.com$/,       // OpenAI 子域名
+  /^.*\.deepseek\.com$/,     // DeepSeek 子域名
+  /^.*\.siliconflow\.cn$/,   // 硅基流动
+  /^.*\.together\.xyz$/,     // Together AI
+  /^.*\.novita\.ai$/,        // Novita AI
+  /^.*\.fireworks\.ai$/,     // Fireworks AI
+];
+
+// 内网 IP 段（禁止回环 / 内网 SSRF）
+const BLOCKED_IP_PATTERNS = [
+  /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./,
+  /^0\./, /^169\.254\./, /^224\./, /^240\./,
+  /^localhost$/i,
+];
+
+function validateImageBaseUrl(baseUrl) {
+  if (!baseUrl) return;
+  try {
+    const url = new URL(baseUrl);
+    // 必须 HTTPS
+    if (url.protocol !== 'https:') {
+      throw new Error('自定义图片 API 必须使用 HTTPS');
+    }
+    // 禁止 IP 地址（含内网 IP）
+    const hostname = url.hostname.toLowerCase();
+    if (BLOCKED_IP_PATTERNS.some((p) => p.test(hostname))) {
+      throw new Error('不允许使用内网或回环地址');
+    }
+    // 仅允许已知域名
+    const allowed = ALLOWED_IMAGE_HOSTS.some((p) =>
+      p instanceof RegExp ? p.test(hostname) : hostname === p
+    );
+    if (!allowed) {
+      throw new Error(`不允许的图片 API 域名: ${hostname}`);
+    }
+  } catch (err) {
+    if (err.message.startsWith('自定义') || err.message.startsWith('不允许')) {
+      throw err;
+    }
+    throw new Error('自定义图片 API URL 格式无效');
+  }
+}
+
 app.post('/api/image', async (req, res) => {
   try {
     const { prompt, provider, apiKey, baseUrl, model, size } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: '请提供 prompt 参数' });
     }
+
+    // API key: 优先用客户端传入的，否则回退到服务端 .env
+    const imgApiKey = apiKey || process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY;
 
     // 缓存检查
     const cacheKey = `${provider || 'pollinations'}:${prompt.substring(0, 200)}`;
@@ -338,7 +403,7 @@ app.post('/api/image', async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${imgApiKey}`,
         },
         body: JSON.stringify({
           model: model || 'gpt-image-1',
@@ -348,8 +413,13 @@ app.post('/api/image', async (req, res) => {
         }),
       });
     } else if (prov === 'custom') {
-      // 自定义 OpenAI 兼容 API
-      const endpoint = `${baseUrl || 'https://api.openai.com'}/v1/images/generations`;
+      // 自定义 OpenAI 兼容 API（需通过安全验证）
+      try {
+        validateImageBaseUrl(baseUrl);
+      } catch (err) {
+        return res.status(400).json({ error: `自定义 API 配置无效: ${err.message}` });
+      }
+      const endpoint = `${baseUrl}/v1/images/generations`;
       const customBody = {
         model: model || 'flux',
         prompt: safePrompt,
@@ -360,7 +430,7 @@ app.post('/api/image', async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${imgApiKey}`,
         },
         body: JSON.stringify(customBody),
       });
