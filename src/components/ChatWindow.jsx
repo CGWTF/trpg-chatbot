@@ -16,7 +16,7 @@ export default function ChatWindow({ messages, streamingText, isStreaming, onIma
         {isWelcome && (
           <div className="welcome-message">
             <div className="welcome-icon">🐉</div>
-            <h2>欢迎来到跑团助手</h2>
+            <h2>欢迎来到跑团游戏机</h2>
             <p>我是你的冒险向导，可以帮你:</p>
             <div className="welcome-features">
               <div className="welcome-feature">
@@ -53,7 +53,7 @@ export default function ChatWindow({ messages, streamingText, isStreaming, onIma
             <div className="message-avatar">🐉</div>
             <div className="message-content">
               <div className="message-sender">
-                跑团助手
+                跑团游戏机
                 <span className="message-time streaming-dot">正在书写...</span>
               </div>
               <div
