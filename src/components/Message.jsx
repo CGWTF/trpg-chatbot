@@ -63,7 +63,7 @@ export default function Message({ msg, onImageGenerate }) {
       </div>
       <div className="message-content">
         <div className="message-sender">
-          {isUser ? '你' : isSystem ? '系统' : isDice ? '骰子' : '跑团游戏机'}
+          {isUser ? '你' : isSystem ? '系统' : isDice ? '骰子' : '跑团故事机'}
           <span className="message-time">{msg.time}</span>
         </div>
         <div

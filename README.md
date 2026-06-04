@@ -1,4 +1,4 @@
-# 🐉 跑团游戏机 - TRPG Storyteller
+# 🐉 跑团故事机 - TRPG Storyteller
 
 AI 互动跑团故事机器人 — 对话叙事、骰子检定、场景配图、多存档。
 

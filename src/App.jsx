@@ -20,7 +20,7 @@ function getTime() {
 }
 
 const WELCOME_MSG = {
-  text: `🐉 **欢迎来到跑团游戏机！**
+  text: `🐉 **欢迎来到跑团故事机！**
 
 我是你的冒险向导，可以帮你:
 • 🎲 **投骰子** — \`/r 2d6+1\`、\`/r 1d20\`、\`/r d100\`
@@ -173,7 +173,7 @@ export default function App() {
             📜
           </button>
           <span className="header-icon">🐉</span>
-          <h1>跑团游戏机</h1>
+          <h1>跑团故事机</h1>
           <span className="header-subtitle">TRPG Storyteller</span>
         </div>
         <div className="header-right">
