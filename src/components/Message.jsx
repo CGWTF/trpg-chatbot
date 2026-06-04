@@ -107,13 +107,22 @@ export default function Message({ msg, onImageGenerate }) {
   );
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatMessage(text) {
-  let html = text
+  // 先转义 HTML 防止 XSS，再做 markdown 替换
+  let html = escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code>$1</code>');
 
-  // 高亮 AI 检定请求: 【检定请求：STAT，DCn】...
+  // 高亮 AI 检定请求: 【检定请求：STAT，DCn】...（在已转义的文本上匹配安全）
   html = html.replace(
     /(【检定请求[：:]\s*\w+\s*[，,]\s*DC\s*\d+】?[\s\S]*?检定)/g,
     '<span class="roll-request-tag">$1</span>'

@@ -83,8 +83,17 @@ export default function ChatWindow({ messages, streamingText, isStreaming, onIma
   );
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatStreamingText(text) {
-  return text
+  // 先转义 HTML 防止 XSS，再做 markdown 替换
+  return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
