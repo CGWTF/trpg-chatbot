@@ -67,6 +67,15 @@
   letter-spacing: 1px;
 }
 
+.header-rounds {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+}
+
 .header-right {
   display: flex;
   align-items: center;

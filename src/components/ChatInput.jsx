@@ -8,6 +8,7 @@ const QUICK_CHECKS = [
   { label: '运动', stat: 'STR', desc: '力量(运动)' },
   { label: '调查', stat: 'INT', desc: '智力(调查)' },
   { label: '先攻', stat: 'DEX', desc: '先攻检定' },
+  { label: '耐久', stat: 'CON', desc: '体质(耐久)' },
 ];
 
 export default function ChatInput({ onSend, disabled, pendingRollRequest, charStats, onQuickRoll }) {

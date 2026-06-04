@@ -176,6 +176,9 @@ export default function App() {
           <span className="header-icon">🐉</span>
           <h1>跑团故事机</h1>
           <span className="header-subtitle">TRPG Storyteller</span>
+          <span className="header-rounds" title={`${messages.length} 条消息 / 约 ${Math.floor(messages.length / 2)} 轮对话`}>
+            📝 ~{Math.floor(messages.length / 2)}轮
+          </span>
         </div>
         <div className="header-right">
           <label className="character-name-label">
