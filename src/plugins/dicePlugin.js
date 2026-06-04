@@ -15,7 +15,7 @@ export default function createDicePlugin() {
         const notation = text.replace(/^\/(r|roll)\s*/, '').trim();
         if (!notation) return input;
         const result = rollDice(notation);
-        return { result: { text: formatDiceResult(result), type: 'dice', notation, source: 'dice' } };
+        return { result: { text: formatDiceResult(result), type: 'dice', notation, source: 'dice', _rawResult: result } };
       }
       return input;
     },
@@ -24,7 +24,7 @@ export default function createDicePlugin() {
       const match = input.match(/(?:投|roll?|丢)\s*(\d*d\d+[+-]?\d*)/i);
       if (match && /[投roll丢骰]/i.test(input)) {
         const result = rollDice(match[1]);
-        return { text: formatDiceResult(result), type: 'dice', notation: match[1], source: 'dice' };
+        return { text: formatDiceResult(result), type: 'dice', notation: match[1], source: 'dice', _rawResult: result };
       }
       return input;
     },

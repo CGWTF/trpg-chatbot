@@ -5,6 +5,8 @@ export default function Message({ msg, onImageGenerate }) {
   const isUser = msg.type === 'user';
   const isSystem = msg.type === 'system';
   const isDice = msg.type === 'dice';
+  const isDiceContext = msg._isDiceContext; // 结构化检定上下文
+  const hasRollRequest = !isUser && !isSystem && /【检定请求/.test(msg.text || ''); // AI 请求检定
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [imgBlobUrl, setImgBlobUrl] = useState(null);
@@ -55,7 +57,7 @@ export default function Message({ msg, onImageGenerate }) {
   const engine = msg.image?.engine || 'AI';
 
   return (
-    <div className={`message ${isUser ? 'message-user' : 'message-bot'} ${isDice ? 'message-dice' : ''} ${isSystem ? 'message-system' : ''}`}>
+    <div className={`message ${isUser ? 'message-user' : 'message-bot'} ${isDice ? 'message-dice' : ''} ${isSystem ? 'message-system' : ''} ${isDiceContext ? 'message-dice-context' : ''} ${hasRollRequest ? 'message-roll-request' : ''}`}>
       <div className="message-avatar">
         {isUser ? '🧑' : isSystem ? '⚙️' : isDice ? '🎲' : '🐉'}
       </div>
@@ -106,9 +108,22 @@ export default function Message({ msg, onImageGenerate }) {
 }
 
 function formatMessage(text) {
-  return text
+  let html = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br/>');
+    .replace(/`(.*?)`/g, '<code>$1</code>');
+
+  // 高亮 AI 检定请求: 【检定请求：STAT，DCn】...
+  html = html.replace(
+    /(【检定请求[：:]\s*\w+\s*[，,]\s*DC\s*\d+】?[\s\S]*?检定)/g,
+    '<span class="roll-request-tag">$1</span>'
+  );
+
+  // 高亮结构化检定结果块
+  html = html.replace(
+    /(━━━━━━[\s\S]*?━━━━━━━━━━━━━━━━━━━━)/g,
+    '<div class="dice-context-block">$1</div>'
+  );
+
+  return html.replace(/\n/g, '<br/>');
 }

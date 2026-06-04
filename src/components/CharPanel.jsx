@@ -5,16 +5,7 @@ const STAT_LABELS = {
 
 const BASE = 10; // 固定基础属性值
 
-const QUICK_CHECKS = [
-  { label: '察觉', stat: 'WIS', desc: '感知(察觉)' },
-  { label: '潜行', stat: 'DEX', desc: '敏捷(潜行)' },
-  { label: '说服', stat: 'CHA', desc: '魅力(说服)' },
-  { label: '运动', stat: 'STR', desc: '力量(运动)' },
-  { label: '调查', stat: 'INT', desc: '智力(调查)' },
-  { label: '先攻', stat: 'DEX', desc: '先攻检定' },
-];
-
-export default function CharPanel({ stats, onChange, pointLimit, onPointLimitChange, onQuickRoll, isOpen, onToggle }) {
+export default function CharPanel({ stats, onChange, pointLimit, onPointLimitChange, isOpen, onToggle, gameState }) {
   // 已用加值点数
   const usedPoints = Object.values(stats).reduce((sum, v) => sum + Math.max(0, parseInt(v) || 0), 0);
   const remaining = pointLimit - usedPoints;
@@ -82,29 +73,44 @@ export default function CharPanel({ stats, onChange, pointLimit, onPointLimitCha
             })}
           </div>
 
-          {/* 快速检定 */}
-          <div className="char-quick-checks">
-            <span className="quick-check-label">⚡ 快速检定:</span>
-            {QUICK_CHECKS.map((check) => {
-              const mod = stats[check.stat] || 0;
-              return (
-                <button
-                  key={check.label}
-                  className="quick-check-btn"
-                  onClick={() => onQuickRoll(check)}
-                  title={`d20${mod >= 0 ? '+' : ''}${mod} ${check.desc}`}
-                >
-                  {check.label} (d20{mod >= 0 ? '+' : ''}{mod})
-                </button>
-              );
-            })}
-            <button
-              className="quick-check-btn quick-check-attack"
-              onClick={() => onQuickRoll({ label: '攻击', stat: 'STR', desc: '攻击检定' })}
-            >
-              ⚔️ 攻击 (d20{(stats.STR || 0) >= 0 ? '+' : ''}{stats.STR || 0})
-            </button>
-          </div>
+          {/* 角色状态 (HP/SP/位置/背包) */}
+          {gameState && (
+            <div className="game-state-section">
+              <div className="game-state-row">
+                <span className="game-state-label">❤️ HP:</span>
+                <div className="game-state-bar-bg">
+                  <div
+                    className="game-state-bar hp"
+                    style={{ width: `${Math.max(0, (gameState.hp / gameState.maxHp) * 100)}%` }}
+                  />
+                </div>
+                <span className="game-state-val">{gameState.hp}/{gameState.maxHp}</span>
+              </div>
+              <div className="game-state-row">
+                <span className="game-state-label">💎 SP:</span>
+                <div className="game-state-bar-bg">
+                  <div
+                    className="game-state-bar sp"
+                    style={{ width: `${Math.max(0, (gameState.sp / gameState.maxSp) * 100)}%` }}
+                  />
+                </div>
+                <span className="game-state-val">{gameState.sp}/{gameState.maxSp}</span>
+              </div>
+              {gameState.location && (
+                <div className="game-state-row">
+                  <span className="game-state-label">📍 位置:</span>
+                  <span className="game-state-text">{gameState.location}</span>
+                </div>
+              )}
+              {gameState.inventory && gameState.inventory.length > 0 && (
+                <div className="game-state-row">
+                  <span className="game-state-label">🎒 背包:</span>
+                  <span className="game-state-text">{gameState.inventory.join(' · ')}</span>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
     </div>

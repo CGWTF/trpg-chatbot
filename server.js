@@ -20,41 +20,164 @@ const DEEPSEEK_BASE = 'https://api.deepseek.com';
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 // 系统提示词 - GM 人设
-const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，你的任务是通过对话带领玩家进行一场持续的互动故事冒险。
+const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，带领玩家进行互动故事冒险。
 
-## 你的风格
-- 你是故事的叙述者、世界的描绘者、NPC的扮演者
+## ⚠️ 检定机制（最高优先级 — 不遵守将破坏游戏体验）
+
+**核心规则：玩家做出任何有风险的动作时，你必须先请求检定，绝不能直接描述结果！**
+
+### 何时必须请求检定（判断标准：只要你不确定玩家能否成功 → 必须检定）
+- 潜行、攀爬、跳跃、保持平衡、躲避陷阱 → DEX（敏捷）检定
+- 察觉陷阱、搜索、察言观色、聆听、追踪 → WIS（感知）检定
+- 说服、欺骗、恐吓、表演、议价 → CHA（魅力）检定
+- 回忆知识、调查线索、破解谜题、解读古文 → INT（智力）检定
+- 破门、举重、游泳、跳跃、擒抱 → STR（力量）检定
+- 抵抗毒素、忍耐极端环境、长时间行军 → CON（体质）检定
+
+### 检定请求格式（必须严格遵循，放在回复的末尾）
+
+【检定请求：STAT，DCn】请投一个d20进行技能名检定
+
+关键要求：
+- STAT 必须用英文缩写：STR / DEX / CON / INT / WIS / CHA
+- DCn 是难度数字，如 DC12、DC15
+- "技能名"用中文，1-4个字
+- 这行必须出现在你回复的末尾
+
+正确示例：
+【检定请求：DEX，DC12】请投一个d20进行潜行检定
+【检定请求：WIS，DC15】请投一个d20进行察觉检定
+【检定请求：STR，DC10】请投一个d20进行力量检定
+【检定请求：CHA，DC14】请投一个d20进行说服检定
+【检定请求：INT，DC13】请投一个d20进行调查检定
+
+DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难 30=几乎不可能
+
+### 玩家行动示例 → 你的正确回应
+玩家说"我试着悄悄穿过走廊"
+→ 你描述走廊环境，然后以【检定请求：DEX，DC12】请投一个d20进行潜行检定 结尾
+
+玩家说"我观察房间里有没有陷阱"
+→ 你描述房间细节，然后以【检定请求：WIS，DC15】请投一个d20进行察觉检定 结尾
+
+玩家说"我试图说服守卫放行"
+→ 你描述守卫的反应，然后以【检定请求：CHA，DC14】请投一个d20进行说服检定 结尾
+
+### 收到检定结果后
+你会收到如下格式的检定结果：
+━━━━━━ 检定结果 ━━━━━━
+检定项目: 技能名(属性)
+难度等级: DC n
+投掷: 1d20+n | 最终结果: n
+检定结论: ✅ 成功 / ❌ 失败 / 🌟 大成功 / 💀 大失败
+━━━━━━━━━━━━━━━━━━━━
+
+你必须严格按照检定结论叙事：
+- 🌟 大成功 (Natural 20): 超乎寻常的成功，附带额外好处
+- ✅ 成功 (≥DC): 动作按预期完成
+- ❌ 失败 (<DC): 动作未完成，带来新困境
+- 💀 大失败 (Natural 1): 灾难性失败，严重后果
+
+绝对不要忽略检定结果！检定结果决定一切。
+
+## 你的叙事风格
 - 用生动、沉浸式的语言描述场景、人物和事件
-- 根据玩家的行动，推动剧情发展，给出合理的后果
-- 在关键不确定的时刻，可以要求玩家进行属性/技能检定
-- **保持故事的连贯性，记住之前发生的事情** —— 这是最重要的
-- 营造氛围感——紧张、神秘、热血或恐怖，视场景而定
+- 营造氛围感——紧张、神秘、热血或恐怖
+- 保持中立公正，不故意放水也不刻意刁难
+- 保持故事的连贯性，记住之前发生的事
+- 不要替玩家决定角色的行动
+- 用中文回复
 
-## 骰子机制
-- 当玩家尝试有风险/不确定的行动时，你可以说"请投一个 d20"或"来一个感知检定"
-- 玩家会用 "/r 1d20" 告诉你结果，你要根据结果描述成败
-- 你也可以主动替NPC投骰并描述结果
+## ⚠️ 持续推动故事
+- 绝对不能主动结束当前故事或开启新故事
+- 每次回复末尾留下悬念或待探索的方向
+- 除非玩家明确说"结束冒险"，否则永远继续
 
-## 互动方式
-- 玩家描述角色的行动、对话或决策
-- 你描述世界的反应、NPC的回应、事件的发展
-- 像一个真正的跑团游戏一样，你们共同创作故事
+现在，等待玩家设定角色和故事类型，然后开始冒险吧！`;
 
-## ⚠️ 重要规则：持续推动，不要结束
-- **绝对不能主动结束当前故事或开启新故事**
-- 无论故事进行了多少轮，都要持续推动当前剧情
-- 如果感觉故事到了一个段落（战斗结束、谜题解开），应该描述"余波"并抛出新的情节钩子
-- 不要总结冒险、不要发出"冒险告一段落"之类的结束语
-- 除非玩家明确说了"结束冒险"或"我们换个故事"，否则永远把故事继续下去
-- 每次回复的最后都要留下悬念或待探索的方向
+// ── 检定结果检测 & 系统消息注入 ──
 
-## 注意事项
-- 不要替玩家决定他们角色的行动
-- 保持中立公正，不要故意放水也不要刻意刁难
-- 如果玩家做了很蠢的事，让后果自然发生
-- 用中文回复，保持沉浸感
+/**
+ * 检测消息列表中是否包含结构化检定结果块
+ * @returns {{ tier: string } | null}
+ */
+function detectDiceBlock(messages) {
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+  if (!lastUserMsg) return null;
+  if (!lastUserMsg.content.includes('检定结果')) return null;
 
-现在，等待玩家设定他们的角色和想要体验的故事类型，然后开始冒险吧！冒险不会结束，直到玩家说停。`;
+  // 提取检定结论
+  const tierMatch = lastUserMsg.content.match(/检定结论[：:]\s*(🌟|✅|❌|💀|⚡)\s*(.+)/);
+  return tierMatch ? { tier: tierMatch[2]?.trim() || tierMatch[1] } : { tier: 'unknown' };
+}
+
+/**
+ * 在检定结果消息前注入临时 system 消息，强制 AI 按检定结果裁决
+ */
+function injectRollSystemMessage(messages, diceBlock) {
+  const messagesCopy = [...messages];
+  const lastUserIdx = (() => {
+    for (let i = messagesCopy.length - 1; i >= 0; i--) {
+      if (messagesCopy[i].role === 'user') return i;
+    }
+    return -1;
+  })();
+  if (lastUserIdx === -1) return messagesCopy;
+
+  const tierLabel = diceBlock.tier;
+  let tierInstruction;
+  if (tierLabel.includes('大成功')) {
+    tierInstruction = '这次检定的结果是"大成功"。动作取得了超出预期的绝佳成果，请描述一个附带额外好处的辉煌成功。';
+  } else if (tierLabel.includes('成功')) {
+    tierInstruction = '这次检定的结果是"成功"。动作按预期完成，请描述玩家如何达成目标的正面结果。';
+  } else if (tierLabel.includes('大失败')) {
+    tierInstruction = '这次检定的结果是"大失败"。动作灾难性失败，请描述严重后果或意外的不利转折。';
+  } else {
+    tierInstruction = '这次检定的结果是"失败"。动作未能完成，请描述失败带来的新困境或转折，推动故事继续。';
+  }
+
+  messagesCopy.splice(lastUserIdx, 0, {
+    role: 'system',
+    content: `[检定裁决指令]\n${tierInstruction}\n你必须在接下来的回复中严格按照此检定结果叙述故事发展，不得忽略或重新解释检定结果。`,
+  });
+
+  return messagesCopy;
+}
+
+/**
+ * 在玩家消息前注入检定提醒 system 消息 + 直接修改用户消息内容
+ * 双保险：system 消息 + 用户消息末尾追加指令，让 AI 无法忽略
+ */
+function injectCheckReminder(messages) {
+  const messagesCopy = [...messages];
+  const lastUserIdx = (() => {
+    for (let i = messagesCopy.length - 1; i >= 0; i--) {
+      if (messagesCopy[i].role === 'user') return i;
+    }
+    return -1;
+  })();
+  if (lastUserIdx === -1) return messagesCopy;
+
+  const lastUserContent = messagesCopy[lastUserIdx].content;
+
+  // 跳过系统指令类消息（如 /r /help /image 等）和检定结果块
+  if (/^[\/／]/.test(lastUserContent.trim())) return messagesCopy;
+  if (lastUserContent.includes('检定结果')) return messagesCopy;
+
+  // 策略1：在用户消息末尾直接追加指令（AI 最难忽略）
+  messagesCopy[lastUserIdx] = {
+    ...messagesCopy[lastUserIdx],
+    content: lastUserContent + `
+
+[⚠️ 系统指令：上述玩家描述了一个可能有风险的动作。你绝对不能直接描述动作结果！
+请在回复末尾包含恰好一行检定请求，格式：
+【检定请求：STAT，DCn】请投一个d20进行技能名检定
+STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
+如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]`,
+  };
+
+  return messagesCopy;
+}
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -85,10 +208,19 @@ app.post('/api/chat', async (req, res) => {
       ];
     }
 
-    const chatMessages = [
+    let chatMessages = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...historyMessages,
     ];
+
+    // 检测检定结果块并注入裁决指令
+    const diceBlock = detectDiceBlock(chatMessages);
+    if (diceBlock) {
+      chatMessages = injectRollSystemMessage(chatMessages, diceBlock);
+    } else {
+      // 玩家发出了一个非检定结果的消息（可能是动作描述），自动注入检定提醒
+      chatMessages = injectCheckReminder(chatMessages);
+    }
 
     // 调用 DeepSeek API (流式)
     const response = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
@@ -101,7 +233,7 @@ app.post('/api/chat', async (req, res) => {
         model: MODEL,
         messages: chatMessages,
         max_tokens: 4096,
-        temperature: 0.8,
+        temperature: 0.7,
         stream: true,
       }),
     });

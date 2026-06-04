@@ -38,7 +38,7 @@ export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamE
 
     // pipeline 钩子：AI 请求后
     onAfterAI(text) {
-      onStreamEnd?.(false);
+      onStreamEnd?.(false, text);
       return text;
     },
 

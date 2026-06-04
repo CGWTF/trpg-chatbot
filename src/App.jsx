@@ -4,6 +4,7 @@ import ChatInput from './components/ChatInput';
 import StorySidebar from './components/StorySidebar';
 import CharPanel from './components/CharPanel';
 import { rollDice, formatDiceResult } from './utils/dice';
+import { computeOutcome, buildStructuredRollContext, parseAIForRollRequest, parseAIForStateChanges, applyStateChanges, getDefaultGameState } from './utils/rollContext';
 import { saveImageConfig, getImageConfig } from './utils/storage';
 import useLocalStorageState from './hooks/useLocalStorageState';
 import useStoryManager from './hooks/useStoryManager';
@@ -67,6 +68,8 @@ export default function App() {
   }, []); // 仅首次挂载执行
 
   const [characterName, setCharacterName] = useLocalStorageState('trpg_character_name', '冒险者');
+  const [pendingRollRequest, setPendingRollRequest] = useState(null); // AI 要求的检定: {stat, dc, skill}
+  const [gameState, setGameState] = useLocalStorageState('trpg_game_state', getDefaultGameState());
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -86,11 +89,26 @@ export default function App() {
   const aiPlugin = useMemo(() => createAIPlugin({
     onStreamStart: () => { setIsStreaming(true); setStreamingText(''); },
     onStreamChunk: (text) => setStreamingText(text),
-    onStreamEnd: (aborted) => {
+    onStreamEnd: (aborted, fullText) => {
       setIsStreaming(false);
       setStreamingText('');
       abortRef.current = null;
-      if (!aborted) setIsProcessing(false);
+      if (!aborted) {
+        // 解析 AI 回复中的检定请求
+        if (fullText) {
+          const rollReq = parseAIForRollRequest(fullText);
+          if (rollReq) {
+            setPendingRollRequest(rollReq);
+          } else if (fullText.length > 20) {
+            // 调试：AI 回复了但没有检定请求——可能格式不对或 AI 没遵循提示词
+            console.warn('[检定解析] AI 回复中未检测到检定请求，回复预览:', fullText.slice(0, 120));
+          }
+          // 解析状态变更（存在时自动应用）
+          const stateChanges = parseAIForStateChanges(fullText);
+          if (stateChanges) setGameState(prev => applyStateChanges(prev, stateChanges));
+        }
+        setIsProcessing(false);
+      }
     },
     onError: (msg) => {
       addMessage({ text: msg, type: 'system', time: getTime() });
@@ -121,8 +139,8 @@ export default function App() {
     });
   }, [setMessages]);
 
-  // ── AI 调用 (v2: 传入当前 messages 和 apiKey，避开闭包过期) ──
-  const callAI = useCallback(async (userText) => {
+  // ── AI 调用 (v3: 支持传入最新 messages，避开闭包过期) ──
+  const callAI = useCallback(async (userText, customMessages) => {
     if (!apiKey) {
       addMessage({
         text: '⚠️ **需要设置 API Key 才能使用故事模式！**\n\n请点击右上角的 ⚙️ 设置按钮，输入你的 DeepSeek API Key。',
@@ -140,9 +158,10 @@ export default function App() {
     abortRef.current = controller;
 
     pipeline.run('onBeforeAI', userText);
-    // 直接传入当前的 messages（从 useStoryManager 实时拿，非闭包）
+    // 优先使用调用方传入的最新消息列表，否则用闭包中的 messages
+    const latestMessages = customMessages || messages;
     const result = await aiPlugin.sendToAI(userText, controller, {
-      messages,
+      messages: latestMessages,
       apiKey,
     });
 
@@ -160,19 +179,40 @@ export default function App() {
   // ── 快速检定 ──
   const handleQuickRoll = useCallback((check) => {
     const mod = charStats[check.stat] || 0;
-    const result = rollDice(`1d20${mod >= 0 ? '+' : ''}${mod}`);
-    const diceText = formatDiceResult(result);
+    const notation = mod === 0 ? '1d20' : `1d20${mod > 0 ? '+' : ''}${mod}`;
+    const result = rollDice(notation);
+
+    // 检查是否有待处理的 AI 检定请求，且属性匹配
+    const rollReq = pendingRollRequest;
+    const statMatches = rollReq && rollReq.stat === check.stat;
+    const dc = statMatches ? rollReq.dc : null;
+    const skill = statMatches ? rollReq.skill : check.label;
+
+    // 计算结果分级
+    const outcome = computeOutcome(result, dc);
+    const outcomeLabel = outcome ? `\n┄┄ ${outcome.label}` : '';
+    const diceText = formatDiceResult(result) + outcomeLabel;
 
     addMessage({ text: diceText, type: 'dice', time: getTime() });
 
     if (apiKey) {
-      const ctx = `🎲 我进行了**${check.desc}**：${diceText}\n\n请根据这个检定结果，在故事中描述接下来发生了什么。`;
-      addMessage({ text: ctx, type: 'user', time: getTime() });
+      // 构建结构化检定上下文
+      const ctx = buildStructuredRollContext({
+        notation,
+        diceResult: result,
+        dc,
+        stat: check.stat,
+        skill,
+        outcome,
+      });
+      addMessage({ text: ctx, type: 'user', time: getTime(), _isDiceContext: true });
+      setPendingRollRequest(null); // 消耗检定请求
       setIsProcessing(true);
-      callAI(ctx);
+      // 传入包含刚添加消息的最新列表，避免闭包过期
+      callAI(ctx, [...messages, { text: diceText, type: 'dice', time: getTime() }, { text: ctx, type: 'user', time: getTime(), _isDiceContext: true }]);
     }
     pipeline.run('afterSend', diceText, { type: 'dice' });
-  }, [charStats, apiKey, addMessage, callAI, pipeline]);
+  }, [charStats, pendingRollRequest, apiKey, addMessage, callAI, pipeline, messages]);
 
   // ── 发送消息 ──
   const handleSend = useCallback(async (text) => {
@@ -188,13 +228,44 @@ export default function App() {
 
     // 根据 source 分发
     if (result.source === 'dice') {
-      addMessage({ ...result, time: getTime() });
+      // 计算结果分级
+      let rawResult = result._rawResult;
+      let displayNotation = result.notation || text;
+      const rollReq = pendingRollRequest;
+      const statMatches = rollReq && rawResult && !rawResult.error
+        && rawResult.count === 1 && rawResult.sides === 20 && !rawResult.modifier;
+      const dc = rollReq?.dc ?? null;
+
+      // 如果有待处理的检定请求且是纯 d20（无修正值），应用角色属性加值
+      if (statMatches) {
+        const statMod = charStats[rollReq.stat] || 0;
+        if (statMod !== 0) {
+          displayNotation = `1d20${statMod > 0 ? '+' : ''}${statMod}`;
+          rawResult = rollDice(displayNotation);
+        }
+      }
+
+      const outcome = rawResult ? computeOutcome(rawResult, dc) : null;
+      const outcomeLabel = outcome ? `\n┄┄ ${outcome.label}` : '';
+
+      addMessage({ ...result, text: formatDiceResult(rawResult) + outcomeLabel, time: getTime() });
+
       if (apiKey) {
-        const ctx = `🎲 我进行了检定：${text}\n\n检定结果：${result.text}\n\n请根据这个结果，在故事中描述接下来发生了什么。`;
+        // 构建结构化检定上下文
+        const ctx = buildStructuredRollContext({
+          notation: displayNotation,
+          diceResult: rawResult,
+          dc,
+          stat: rollReq?.stat,
+          skill: rollReq?.skill,
+          outcome,
+        });
         setTimeout(() => {
-          addMessage({ text: ctx, type: 'user', time: getTime() });
+          addMessage({ text: ctx, type: 'user', time: getTime(), _isDiceContext: true });
+          setPendingRollRequest(null); // 消耗检定请求
           setIsProcessing(true);
-          callAI(ctx);
+          // 传入包含刚添加消息的最新列表，避免闭包过期
+          callAI(ctx, [...messages, { text: formatDiceResult(rawResult) + outcomeLabel, type: 'dice', time: getTime() }, { text: ctx, type: 'user', time: getTime(), _isDiceContext: true }]);
         }, 300);
       } else {
         setIsProcessing(false);
@@ -223,7 +294,7 @@ export default function App() {
     }
 
     pipeline.run('afterSend', text, result);
-  }, [addMessage, apiKey, callAI, newStory, pipeline, plugins]);
+  }, [addMessage, apiKey, callAI, newStory, pipeline, plugins, pendingRollRequest, charStats, messages]);
 
   // ── 存档变更回调 ──
   const onNewWithHook = () => {
@@ -253,7 +324,7 @@ export default function App() {
         </div>
       </header>
 
-      <CharPanel stats={charStats} onChange={setCharStats} pointLimit={pointLimit} onPointLimitChange={setPointLimit} onQuickRoll={handleQuickRoll} isOpen={showCharPanel} onToggle={() => setShowCharPanel(!showCharPanel)} />
+      <CharPanel stats={charStats} onChange={setCharStats} pointLimit={pointLimit} onPointLimitChange={setPointLimit} isOpen={showCharPanel} onToggle={() => setShowCharPanel(!showCharPanel)} gameState={gameState} />
 
       {showSettings && (
         <div className="settings-panel">
@@ -323,7 +394,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        <ChatInput onSend={handleSend} disabled={isProcessing} />
+        <ChatInput onSend={handleSend} disabled={isProcessing} pendingRollRequest={pendingRollRequest} charStats={charStats} onQuickRoll={handleQuickRoll} />
       </footer>
     </div>
   );
