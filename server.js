@@ -145,8 +145,8 @@ function injectRollSystemMessage(messages, diceBlock) {
 }
 
 /**
- * 在玩家消息前注入检定提醒 system 消息 + 直接修改用户消息内容
- * 双保险：system 消息 + 用户消息末尾追加指令，让 AI 无法忽略
+ * 在用户消息末尾追加检定提醒指令，强制 AI 检查是否需要检定
+ * 把指令直接写入用户消息内容，AI 处理用户输入时必然会看到，无法跳过
  */
 function injectCheckReminder(messages) {
   const messagesCopy = [...messages];
@@ -164,7 +164,7 @@ function injectCheckReminder(messages) {
   if (/^[\/／]/.test(lastUserContent.trim())) return messagesCopy;
   if (lastUserContent.includes('检定结果')) return messagesCopy;
 
-  // 策略1：在用户消息末尾直接追加指令（AI 最难忽略）
+  // 在用户消息末尾直接追加指令（AI 最难忽略）
   messagesCopy[lastUserIdx] = {
     ...messagesCopy[lastUserIdx],
     content: lastUserContent + `
