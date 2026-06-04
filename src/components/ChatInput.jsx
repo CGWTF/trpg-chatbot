@@ -39,6 +39,7 @@ export default function ChatInput({ onSend, disabled, pendingRollRequest, charSt
 
   return (
     <div className="chat-input-container">
+      {console.log('[ChatInput] pendingRollRequest:', pendingRollRequest)}
       {pendingRollRequest && (
         <div className="roll-request-banner">
           ⚡ AI 请求检定: <strong>{pendingRollRequest.skill}</strong>

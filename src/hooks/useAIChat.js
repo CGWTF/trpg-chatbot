@@ -41,6 +41,7 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
           abortRef.current = null;
           if (!aborted && fullText) {
             const rollReq = parseAIForRollRequest(fullText);
+            console.log('[useAIChat] onStreamEnd, parseAIForRollRequest:', rollReq);
             if (rollReq) {
               setPendingRollRequest(rollReq);
             } else if (fullText.length > 20) {
