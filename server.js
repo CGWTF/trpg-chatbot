@@ -175,7 +175,7 @@ function injectCheckReminder(messages) {
   const lastUserContent = messagesCopy[lastUserIdx].content;
 
   // 跳过系统指令类消息（如 /r /help /image 等）和检定结果块
-  if (/^[\/／]/.test(lastUserContent.trim())) return messagesCopy;
+  if (/^[/／]/.test(lastUserContent.trim())) return messagesCopy;
   if (lastUserContent.includes('检定结果')) return messagesCopy;
 
   // 在用户消息末尾直接追加指令（AI 最难忽略）
@@ -357,7 +357,7 @@ function validateImageBaseUrl(baseUrl) {
     if (err.message.startsWith('自定义') || err.message.startsWith('不允许')) {
       throw err;
     }
-    throw new Error('自定义图片 API URL 格式无效');
+    throw new Error('自定义图片 API URL 格式无效', { cause: err });
   }
 }
 
@@ -460,7 +460,6 @@ app.post('/api/image', async (req, res) => {
     }
 
     // 根据后端类型解析响应
-    let imageUrl;
     if (prov === 'pollinations') {
       // Pollinations 直接返回图片二进制
       const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
