@@ -226,20 +226,17 @@ export function parseAIForStateChanges(text) {
 /**
  * 从 AI 回复中提取道具、线索和场所
  *
- * 主策略：AI 在回复末尾用粗体标记声明：
- *   **获得道具：物品名**
- *   **失去道具：物品名**
- *   **发现线索：线索简述**
- *   **得知场所：场所名**
- *
- * 弱回退：自然语言匹配（仅在粗体标记未匹配到时生效）
+ * 三层策略（优先级从高到低）：
+ * 1. 粗体标记：**获得道具：X** / **发现线索：X** / **得知场所：X**
+ * 2. emoji 分区：🎒道具 / 📜线索 / 🏛️场所 等标题下的列表
+ * 3. 自然语言：获得X / 发现X（最弱，仅兜底）
  */
 export function scanAIForItems(text) {
   const items = [];
   const clues = [];
   const locations = [];
 
-  // ── 主策略：粗体标记精准匹配 ──
+  // ── 策略1：粗体标记精准匹配 ──
   const boldItem = /\*\*获得道具[：:]\s*(.+?)\*\*/g;
   const boldClue = /\*\*发现线索[：:]\s*(.+?)\*\*/g;
   const boldLocation = /\*\*得知场所[：:]\s*(.+?)\*\*/g;
@@ -257,26 +254,24 @@ export function scanAIForItems(text) {
     if (name.length >= 2 && name.length <= 30) locations.push(name);
   }
 
-  // ── 弱回退：自然语言（仅在所有粗体标记都没匹配到时） ──
+  // ── 策略2：emoji 分区列表（粗体没匹配到时启用） ──
+  if (items.length === 0 && clues.length === 0 && locations.length === 0) {
+    const sections = parseEmojiSections(text);
+    items.push(...sections.items);
+    clues.push(...sections.clues);
+    locations.push(...sections.locations);
+  }
+
+  // ── 策略3：自然语言兜底 ──
   if (items.length === 0 && clues.length === 0 && locations.length === 0) {
     const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没)$/;
-    const itemPatterns = [
-      /(?:获得了?|得到了?|捡起了?|拾起了?|拿到了?|入手了?)[「『]?([^，。！？\n]{2,10})[」』]?/g,
-    ];
-    const cluePatterns = [
-      /(?:发现了?|注意到|察觉到)[「『]?([^，。！？\n]{3,20})[」』]?/g,
-    ];
-    for (const p of itemPatterns) {
-      for (const m of text.matchAll(p)) {
-        const c = m[1].trim();
-        if (c.length >= 2 && c.length <= 15 && !noise.test(c)) items.push(c);
-      }
+    for (const m of text.matchAll(/(?:获得了?|得到了?|捡起了?|拾起了?|拿到了?|入手了?)[「『]?([^，。！？\n]{2,10})[」』]?/g)) {
+      const c = m[1].trim();
+      if (c.length >= 2 && c.length <= 15 && !noise.test(c)) items.push(c);
     }
-    for (const p of cluePatterns) {
-      for (const m of text.matchAll(p)) {
-        const c = m[1].trim();
-        if (c.length >= 3 && c.length <= 25 && !noise.test(c)) clues.push(c);
-      }
+    for (const m of text.matchAll(/(?:发现了?|注意到|察觉到)[「『]?([^，。！？\n]{3,20})[」』]?/g)) {
+      const c = m[1].trim();
+      if (c.length >= 3 && c.length <= 25 && !noise.test(c)) clues.push(c);
     }
   }
 
@@ -286,6 +281,61 @@ export function scanAIForItems(text) {
     locations: [...new Set(locations)],
   };
 }
+
+/**
+ * 解析 emoji 分区格式的 AI 回复
+ * 处理 🎒随身道具 / 📜线索 / 🏛️场所 等标题后的编号列表
+ */
+function parseEmojiSections(text) {
+  const items = [];
+  const clues = [];
+  const locations = [];
+
+  const sectionTargets = [
+    { keys: ['🎒', '道具', '物品', '背包', '随身道具', '随身物品'], target: items },
+    { keys: ['📜', '🔍', '线索', '已获取的线索', '已知信息', '信息与线索'], target: clues },
+    { keys: ['🏛️', '📍', '场所', '已知场所', '地点', '探索'], target: locations },
+  ];
+
+  // 找到所有标题及其位置和目标，按出现顺序排序
+  const markers = [];
+  for (const def of sectionTargets) {
+    for (const k of def.keys) {
+      const re = new RegExp(`${escapeRegex(k)}[^\\n]*[：:]\\s*\\n`, 'g');
+      for (const m of text.matchAll(re)) {
+        markers.push({ start: m.index + m[0].length, target: def.target });
+      }
+    }
+  }
+  markers.sort((a, b) => a.start - b.start);
+  if (!markers.length) return { items, clues, locations };
+
+  const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|与线索|与信息|与场所)$/;
+  const headerLine = /^[🎒🔍🏛️📜📍⚔️💎🎭]/;
+
+  for (let i = 0; i < markers.length; i++) {
+    const m = markers[i];
+    const sliceStart = m.start;
+    const sliceEnd = i + 1 < markers.length ? markers[i + 1].start : text.length;
+    const body = text.slice(sliceStart, sliceEnd);
+
+    for (const line of body.split(/\n/)) {
+      if (headerLine.test(line.trim())) continue; // 跳过下一个分区的标题行
+      let cleaned = line
+        .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
+        .replace(/[（(][^)）]*[）)]/g, '')
+        .replace(/[—\-—].*$/, '')
+        .trim();
+      if (cleaned.length >= 2 && cleaned.length <= 40 && !noise.test(cleaned)) {
+        if (!m.target.includes(cleaned)) m.target.push(cleaned);
+      }
+    }
+  }
+
+  return { items, clues, locations };
+}
+
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 // ── 状态变更应用 ──
 
