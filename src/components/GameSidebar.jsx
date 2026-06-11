@@ -151,10 +151,22 @@ export default function GameSidebar({
             </div>
           )}
 
+          {/* 场所 */}
+          {gameState && gameState.locations && gameState.locations.length > 0 && (
+            <div className="sidebar-section">
+              <span className="sidebar-label">🏛️ 已知场所 ({gameState.locations.length})</span>
+              <ul className="sidebar-list">
+                {gameState.locations.map((loc, i) => (
+                  <li key={i} className="sidebar-list-item location-item">{loc}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* 空状态提示 */}
-          {(!gameState || (gameState.inventory?.length === 0 && gameState.clues?.length === 0)) && (
+          {(!gameState || (gameState.inventory?.length === 0 && gameState.clues?.length === 0 && gameState.locations?.length === 0)) && (
             <div className="sidebar-section sidebar-empty">
-              🎒 暂无道具  ·  🔍 暂无线索
+              🎒 暂无道具  ·  🔍 暂无线索  ·  🏛️ 暂无场所
               <div className="sidebar-empty-hint">道具和线索会随着冒险自动记录</div>
             </div>
           )}

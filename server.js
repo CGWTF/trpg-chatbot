@@ -99,6 +99,7 @@ DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难
 - 获得道具：[STATE:add_inventory=物品名称]
 - 失去道具：[STATE:remove_inventory=物品名称]
 - 发现线索：[STATE:add_clue=线索描述]
+- 发现场所：[STATE:add_location=场所名]
 - 改变位置：[STATE:location=新地点]
 - 生命/魔力变化：[STATE:hp=-5] 或 [STATE:sp=+3]
 

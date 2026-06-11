@@ -17,34 +17,41 @@ export default function useGameState() {
     getDefaultGameState()
   );
 
-  // 从 AI 回复中提取 STATE 标签并应用到当前状态
-  // 如果 AI 没用 STATE 标签，回退到启发式扫描
+  // 从 AI 回复中提取 STATE 标签 + 启发式扫描，合并结果
   const applyAIStateUpdate = useCallback(
     (aiFullText) => {
       const changes = parseAIForStateChanges(aiFullText);
-      if (changes) {
-        setGameState((prev) => applyStateChanges(prev, changes));
-      } else {
-        // 回退：启发式扫描 AI 回复，提取未标记的道具和线索
-        const scanned = scanAIForItems(aiFullText);
-        if (scanned.items.length > 0 || scanned.clues.length > 0) {
-          setGameState((prev) => {
-            let next = { ...prev };
-            for (const item of scanned.items) {
-              // 去重：背包里没有的才加
-              if (!next.inventory.includes(item)) {
-                next = applyStateChanges(next, { add_inventory: item });
-              }
-            }
-            for (const clue of scanned.clues) {
-              if (!next.clues.includes(clue)) {
-                next = applyStateChanges(next, { add_clue: clue });
-              }
-            }
-            return next;
-          });
-        }
+      const scanned = scanAIForItems(aiFullText);
+
+      // 如果没有显式 STATE 标签也没有扫描到东西，跳过
+      if (!changes && scanned.items.length === 0 && scanned.clues.length === 0 && scanned.locations.length === 0) {
+        return;
       }
+
+      setGameState((prev) => {
+        let next = { ...prev };
+        // 先应用 STATE 标签（优先级更高）
+        if (changes) {
+          next = applyStateChanges(next, changes);
+        }
+        // 补充扫描器找到的遗漏项（去重）
+        for (const item of scanned.items) {
+          if (!next.inventory.includes(item)) {
+            next = applyStateChanges(next, { add_inventory: item });
+          }
+        }
+        for (const clue of scanned.clues) {
+          if (!next.clues.includes(clue)) {
+            next = applyStateChanges(next, { add_clue: clue });
+          }
+        }
+        for (const loc of scanned.locations) {
+          if (!next.locations.includes(loc)) {
+            next = applyStateChanges(next, { add_location: loc });
+          }
+        }
+        return next;
+      });
     },
     [setGameState]
   );
