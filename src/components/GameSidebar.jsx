@@ -7,7 +7,7 @@ const BASE = 10;
 
 export default function GameSidebar({
   isOpen, onClose, stats, onChange, pointLimit, onPointLimitChange,
-  characterName, onCharacterNameChange, gameState, onOpenReasoning,
+  characterName, onCharacterNameChange, gameState, onOpenReasoning, readOnly,
 }) {
   if (!isOpen) return null;
 
@@ -33,17 +33,23 @@ export default function GameSidebar({
         <div className="game-sidebar-body">
           <div className="sidebar-section">
             <label className="sidebar-label">🧑 角色名</label>
-            <input type="text" className="sidebar-name-input" value={characterName}
-              onChange={(e) => onCharacterNameChange(e.target.value)} maxLength={20} placeholder="冒险者" />
+            {readOnly ? (
+              <div className="sidebar-text" style={{ fontSize: 14, fontWeight: 600 }}>{characterName || '冒险者'}</div>
+            ) : (
+              <input type="text" className="sidebar-name-input" value={characterName}
+                onChange={(e) => onCharacterNameChange(e.target.value)} maxLength={20} placeholder="冒险者" />
+            )}
           </div>
 
-          <div className="sidebar-points-row" style={{ padding: '4px 0', alignItems: 'center', gap: 8 }}>
-            <span className="sidebar-label" style={{ marginBottom: 0 }}>🎯 加点</span>
-            <span className={`sidebar-points ${remaining < 0 ? 'over' : remaining === 0 ? 'empty' : ''}`}>{remaining}</span>
-            <span style={{ color: 'var(--text-muted)' }}>/</span>
-            <input type="number" className="sidebar-points-input" value={pointLimit}
-              onChange={(e) => onPointLimitChange(Math.max(0, parseInt(e.target.value) || 20))} min={0} max={60} />
-          </div>
+          {!readOnly && (
+            <div className="sidebar-points-row" style={{ padding: '4px 0', alignItems: 'center', gap: 8 }}>
+              <span className="sidebar-label" style={{ marginBottom: 0 }}>🎯 加点</span>
+              <span className={`sidebar-points ${remaining < 0 ? 'over' : remaining === 0 ? 'empty' : ''}`}>{remaining}</span>
+              <span style={{ color: 'var(--text-muted)' }}>/</span>
+              <input type="number" className="sidebar-points-input" value={pointLimit}
+                onChange={(e) => onPointLimitChange(Math.max(0, parseInt(e.target.value) || 20))} min={0} max={60} />
+            </div>
+          )}
 
           <div className="sidebar-section">
             {Object.entries(STAT_LABELS).map(([key, label]) => {
@@ -51,12 +57,18 @@ export default function GameSidebar({
               return (
                 <div key={key} className="stat-row">
                   <span className="stat-label">{label}</span>
-                  <span className="stat-base">{BASE}</span>
-                  <span className="stat-plus">+</span>
-                  <input type="number" className="stat-input" value={bonus}
-                    onChange={(e) => updateStat(key, e.target.value)} min={0} max={10} />
-                  <span className="stat-eq">=</span>
-                  <span className="stat-attr">{BASE + bonus}</span>
+                  {readOnly ? (
+                    <span className="stat-attr" style={{ marginLeft: 6 }}>{BASE + bonus}</span>
+                  ) : (
+                    <>
+                      <span className="stat-base">{BASE}</span>
+                      <span className="stat-plus">+</span>
+                      <input type="number" className="stat-input" value={bonus}
+                        onChange={(e) => updateStat(key, e.target.value)} min={0} max={10} />
+                      <span className="stat-eq">=</span>
+                      <span className="stat-attr">{BASE + bonus}</span>
+                    </>
+                  )}
                   {bonus > 0 && <span className="stat-mod">+{bonus}</span>}
                 </div>
               );

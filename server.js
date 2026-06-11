@@ -249,7 +249,7 @@ function injectRollSystemMessage(messages, diceBlock) {
  * 在用户消息末尾追加检定提醒指令，强制 AI 检查是否需要检定
  * 把指令直接写入用户消息内容，AI 处理用户输入时必然会看到，无法跳过
  */
-function injectCheckReminder(messages) {
+function injectCheckReminder(messages, pacing) {
   const messagesCopy = [...messages];
   const lastUserIdx = (() => {
     for (let i = messagesCopy.length - 1; i >= 0; i--) {
@@ -267,19 +267,22 @@ function injectCheckReminder(messages) {
 
   // 统计对话进度
   const userMsgCount = messagesCopy.filter((m) => m.role === 'user').length;
+  // 使用故事规模的自定义节奏或默认值
+  const tiers = pacing && pacing.early ? pacing : { early: 150, mid: 200, late: 280, force: 350 };
+
   let pacingHint = '';
-  if (userMsgCount > 350) {
+  if (userMsgCount > tiers.force) {
     pacingHint =
-      '\n[📕 扩展故事终章：对话已超过 350 轮。必须立即收束全部支线，2~3 轮内引导到最终结局。不要再引入任何新线索或地点。]';
-  } else if (userMsgCount > 280) {
+      `\n[📕 强制收束：对话已超过 ${tiers.force} 轮。必须立即收束全部支线，2~3 轮内引导到最终结局。]`;
+  } else if (userMsgCount > tiers.late) {
     pacingHint =
-      '\n[📕 终章推进：对话已超过 280 轮。必须进入最终 BOSS/最终抉择场景，聚焦主线冲突的解决。不要再开新支线。]';
-  } else if (userMsgCount > 200) {
+      `\n[📕 终章推进：对话已超过 ${tiers.late} 轮。必须进入最终场景，聚焦主线冲突的解决。]`;
+  } else if (userMsgCount > tiers.mid) {
     pacingHint =
-      '\n[📖 终章预备：对话已超过 200 轮。开始为结局埋线，减少检定频次和无关事件。在 20~30 轮内推进到最终阶段。]';
-  } else if (userMsgCount > 150) {
+      `\n[📖 终章预备：对话已超过 ${tiers.mid} 轮。开始为结局埋线，减少检定频次和无关事件。]`;
+  } else if (userMsgCount > tiers.early) {
     pacingHint =
-      '\n[📖 节奏提示：对话已进行较长时间。减少引入新支线和新地点，聚焦当前主线的关键冲突。除非玩家明确要求扩展世界观，否则避免展开新势力。]';
+      `\n[📖 节奏提示：对话已超过 ${tiers.early} 轮。减少新支线和新地点，聚焦当前主线。]`;
   }
 
   // 在用户消息末尾直接追加指令（AI 最难忽略）
@@ -398,7 +401,7 @@ app.post('/api/chat', async (req, res) => {
       chatMessages = injectRollSystemMessage(chatMessages, diceBlock);
     } else {
       // 玩家发出了一个非检定结果的消息（可能是动作描述），自动注入检定提醒
-      chatMessages = injectCheckReminder(chatMessages);
+      chatMessages = injectCheckReminder(chatMessages, reasoningContext?.pacing);
     }
 
     // 调用 DeepSeek API (流式)

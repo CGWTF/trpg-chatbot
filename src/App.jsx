@@ -3,6 +3,7 @@ import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import GameSidebar from './components/GameSidebar';
 import InvestigationWorkspace from './components/InvestigationWorkspace';
+import StorySetupWizard from './components/StorySetupWizard';
 import useLocalStorageState from './hooks/useLocalStorageState';
 import useStoryManager from './hooks/useStoryManager';
 import usePipeline from './hooks/usePipeline';
@@ -54,6 +55,7 @@ export default function App() {
   const charStats = character.stats;
   const pointLimit = character.pointLimit;
   const characterName = character.name;
+  const setupComplete = character.setupComplete || false;
   const setCharStats = useCallback(
     (value) => setCharacter((prev) => ({ ...prev, stats: typeof value === 'function' ? value(prev.stats) : value })),
     [setCharacter]
@@ -68,7 +70,16 @@ export default function App() {
   );
 
   // ── 游戏状态（HP/SP/道具/线索） ──
-  const { gameState, setGameState, applyAIStateUpdate } = useGameState(storyGameState, setStoryGameState);
+  const { gameState, setGameState, applyAIStateUpdate, analyzeKnowledge } =
+    useGameState(storyGameState, setStoryGameState);
+
+  const reasoningContext = useMemo(() => ({
+    clues: gameState.clues || [],
+    inventory: gameState.inventory || [],
+    locations: gameState.locations || [],
+    currentLocation: gameState.location || '',
+    pacing: character.pacing || null,
+  }), [gameState.clues, gameState.inventory, gameState.locations, gameState.location, character.pacing]);
 
   // ── AI 对话核心 ──
   const {
@@ -81,7 +92,14 @@ export default function App() {
     abortRef,
     pendingRollRequest,
     setPendingRollRequest,
-  } = useAIChat({ apiKey, addMessage, messages, onAIStateUpdate: applyAIStateUpdate, storyId: currentId });
+  } = useAIChat({
+    apiKey,
+    addMessage,
+    messages,
+    onAIStateUpdate: applyAIStateUpdate,
+    storyId: currentId,
+    reasoningContext,
+  });
 
   // ── 静态插件 + 管道 ──
   const staticPlugins = useMemo(
@@ -159,10 +177,29 @@ export default function App() {
   );
 
   // ── 新冒险 ──
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+
   const onNewWithHook = useCallback(() => {
     newStory();
+    setShowSetupWizard(true);
     pipeline.run('onStorySaved', { id: null, action: 'new' });
   }, [newStory, pipeline]);
+
+  const handleSetupComplete = useCallback(({ character: char, scale: storyScale, pacing }) => {
+    setCharacter((prev) => ({
+      ...prev,
+      name: char.name,
+      stats: char.stats,
+      pointLimit: char.pointLimit,
+      gender: char.gender,
+      age: char.age,
+      identity: char.identity,
+      background: char.background,
+      storyScale,
+      pacing,
+      setupComplete: true,
+    }));
+  }, [setCharacter]);
 
   // ── UI 开关 ──
   const [showSettings, setShowSettings] = useState(false);
@@ -212,8 +249,18 @@ export default function App() {
         </div>
       </header>
 
+      {/* 新故事引导弹窗 */}
+      <StorySetupWizard
+        isOpen={showSetupWizard}
+        onClose={() => setShowSetupWizard(false)}
+        onComplete={handleSetupComplete}
+        initialStats={charStats}
+        initialName={characterName}
+      />
+
       <GameSidebar
         isOpen={showSidebar}
+        readOnly={setupComplete}
         onClose={() => setShowSidebar(false)}
         stories={stories}
         currentId={currentId}
@@ -229,8 +276,6 @@ export default function App() {
         onCharacterNameChange={setCharacterName}
         gameState={gameState}
         setGameState={setGameState}
-        activeTab={investigationTab}
-        onTabChange={setInvestigationTab}
       />
 
       <InvestigationWorkspace
@@ -238,6 +283,16 @@ export default function App() {
         onClose={() => setShowInvestigation(false)}
         gameState={gameState}
         setGameState={setGameState}
+        activeTab={investigationTab}
+        onTabChange={setInvestigationTab}
+        onAnalyze={() => analyzeKnowledge(
+          messages
+            .filter((message) => message.type === 'bot')
+            .map((message) => message.text)
+            .join('\n\n')
+            .slice(-20000),
+          { replaceGraph: true }
+        )}
       />
 
       {showSettings && (
