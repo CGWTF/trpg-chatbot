@@ -548,8 +548,11 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
 
 /* ── 角色信息 ── */
 .char-info-item {
-  background: rgba(212,168,67,0.05);
-  border: 1px solid rgba(212,168,67,0.12);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 2px 0;
 }
 
 .stat-row {
