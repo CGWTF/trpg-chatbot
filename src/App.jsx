@@ -473,8 +473,8 @@ export default function App() {
                   <div className="story-item-content">
                     <div className="story-item-title">
                       {story.id === currentId && <span className="story-active-dot">●</span>}
-                      <span title="点击改名" onClick={(e) => { e.stopPropagation(); const t = prompt('修改冒险名称', story.title); if (t?.trim()) renameStory(t.trim()); }}
-                        style={{ cursor: 'pointer' }}>{story.title}</span>
+                      {story.title}
+                      <button className="story-rename-btn" onClick={(e) => { e.stopPropagation(); const t = prompt('修改冒险名称', story.title); if (t?.trim()) renameStory(t.trim()); }} title="改名">✏️</button>
                     </div>
                     <div className="story-item-meta">
                       <span>{new Date(story.updatedAt).toLocaleDateString('zh-CN')}</span>

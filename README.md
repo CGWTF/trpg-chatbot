@@ -8,8 +8,11 @@ AI 互动跑团故事机器人 — 对话叙事、骰子检定、场景配图、
 git clone https://github.com/CGWTF/trpg-chatbot.git
 cd trpg-chatbot
 npm install
-npm run dev
+npm.cmd run dev:full
 ```
+
+> Windows 使用 `npm.cmd run dev:full`（同时启动前端+后端+NLP）。
+> 如果不需要 NLP 人物关系图，用 `npm.cmd run dev` 即可。
 
 打开 `http://localhost:5173`。
 
@@ -21,7 +24,7 @@ npm run dev
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install -r python_service\requirements.txt
-npm run dev:full
+npm.cmd run dev:full
 ```
 
 启用 Transformers NER：
