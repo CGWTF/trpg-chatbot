@@ -4,32 +4,42 @@
 
 ### 新功能
 
-- **AI 检定请求 → 快速检定 → 结果叙事 完整闭环**
-  - AI 描述玩家动作时自动请求检定（`【检定请求：STAT，DCn】`），不再直接叙事
-  - 输入框上方显示紫色检定横幅 + 对应属性按钮高亮发光
-  - 点击快速检定按钮 → 骰子结果附带分级标签（🌟大成功 / ✅成功 / ❌失败等）
-  - 检定结果自动发送给 AI，GM 严格按结果叙事
-- **快速检定按钮移至输入框上方** — 从角色面板移到 ChatInput，AI 请求检定时对应按钮高亮
-- **`injectCheckReminder`** — 服务端自动在玩家消息中注入检定指令，解决 DeepSeek 忽略提示词的问题
-- **调试日志** — AI 回复不含检定请求时浏览器控制台 warn
+- **FastAPI NLP 知识服务** (`python_service/`)
+  - `extractor.py`: 结构化 JSON + Transformers NER + 规则匹配 三层抽取
+  - `graph_analysis.py`: networkx 知识图谱中心度/连通分量分析
+  - `/api/knowledge/extract` 代理端点 (15s 超时 + 503 友好提示)
+  - AI 回复中的 `<TRPG_REASONING>` 推理块 + `<TRPG_KNOWLEDGE>` 知识块解析
+  - `npm run dev` 一键启动 server+app+nlp 三进程
+- **调查工作台** (`InvestigationWorkspace.jsx`)
+  - 🧠 推理板: 假设卡片、置信度滑块、支持证据/反证
+  - 🕸️ 人物关系: 关系网络、关键人物排名、实体统计
+  - 底部集成道具/线索/场所折叠面板
+- **道具系统 + 线索日志 + 场所系统**
+  - 右侧面板独立管理，AI 用粗体标记 / emoji 分区 / STATE 标签三种格式自动录入
+  - 每栏可折叠 + 🗑️ 清空 + 细滚动条
+  - 写穿模式持久化，切换故事不丢失
+- **故事节奏控制**
+  - 三幕结构系统提示词 + 轮数感知注入 (120轮节奏提示 / 200轮终章推进)
+  - 页头 📝~N轮 计数器
+- **布局重组**
+  - 左栏固定角色面板 (属性/HP/SP/位置，不折叠)
+  - 右栏调查工作台 (推理+关系+道具/线索/场所)
+  - 冒险记录居中弹窗 (取代侧边栏)
 
 ### 修复
 
-- `handleQuickRoll` 技能名用 `check.desc` 导致重复属性名 → 改为 `pendingRollRequest.skill`
-- 点击属性不匹配的检定按钮仍使用 AI 的 DC → 属性不匹配时 `dc=null`
-- 修正值为 0 时显示 `1d20+0` → 改为 `1d20`
-- `callAI` 闭包过期导致消息历史缺失 → 支持传入最新消息列表
-- `/r d20` 纯骰子不包含角色属性加值 → 有待处理请求时自动应用修正值
-- `parseAIForRollRequest` 正则健壮性 → 双正则 + 末尾标点清理
-- `dicePlugin` 返回 `_rawResult` 供分级判定
-- `aiPlugin` 的 `onStreamEnd` 传递完整回复文本
+- `onStreamEnd` 回调丢失 → `sendToAI` 流结束后直接触发
+- `callAI` 不设 `isProcessing(true)` → 快速检定期间输入框不禁用
+- `parseAIForStateChanges` 只捕获第一个 STATE 标签 → 改用 `matchAll` 全局合并
+- `scanAIForItems` 三层策略 (粗体标记 + 逐行扫描 + 自然语言兜底)，支持 AI 各种回复格式
+- server.js 模板字符串反引号冲突导致服务端崩溃
+- CORS 限定 localhost + SSRF 域名白名单 + XSS HTML 转义
 
-### 改进
+### 架构
 
-- 系统提示词重写：检定机制置顶、从"可以"改为"必须"、增加 few-shot 示例
-- `temperature` 从 0.8 降至 0.7，提高输出一致性
-- 检定请求标签和结果块在消息中紫色高亮显示
-- 角色面板去除快速检定区域（已移至 ChatInput）
+- **App.jsx 拆分**: `useGameState` / `useAIChat` / `useRollResolution` / `useImageSettings` 4 个 hook
+- **存档层写穿模式**: React state 唯一数据源，localStorage 只写不读回
+- **ESLint 双配置**: `src/**` 用 browser globals，`server.js` 用 node globals
 
 ## [0.2.0] — 2026-06-03
 
