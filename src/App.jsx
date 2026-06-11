@@ -214,8 +214,16 @@ export default function App() {
     setTimeout(() => {
       if (!apiKey) return;
       // 引导 AI 基于角色卡生成专属开场白
-      const introPrompt = '开始冒险';
-      addMessage({ text: introPrompt, type: 'user', time: getTime() });
+      const introPrompt = `[故事开场指令]
+你已收到角色卡和游戏背景。请为玩家撰写一段沉浸式的故事开场白。
+
+要求：
+- 以第二人称"你"开场，将玩家直接代入角色
+- 基于游戏背景描绘初始场景的细节（声音、气味、光线、氛围）
+- 引入第一个情节钩子——一个微小的悬念、一个奇怪的现象、或一个即将到来的事件
+- 200~400字，不要请求检定，纯粹叙事
+- 结尾留出行动空间让玩家做出第一个选择`;
+      addMessage({ text: '开始冒险', type: 'user', time: getTime() });
       callAI(introPrompt);
     }, 500);
   }, [setCharacter, renameStory, apiKey, addMessage, callAI]);
