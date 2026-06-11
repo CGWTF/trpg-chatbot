@@ -7,7 +7,7 @@ const BASE = 10;
 
 export default function GameSidebar({
   isOpen, onClose, stats, onChange, pointLimit, onPointLimitChange,
-  characterName, onCharacterNameChange, gameState, onOpenReasoning, readOnly,
+  characterName, onCharacterNameChange, gameState, onOpenReasoning, readOnly, character,
 }) {
   if (!isOpen) return null;
 
@@ -40,6 +40,23 @@ export default function GameSidebar({
                 onChange={(e) => onCharacterNameChange(e.target.value)} maxLength={20} placeholder="冒险者" />
             )}
           </div>
+
+          {/* 角色身份信息（引导完成后展示） */}
+          {readOnly && character && (character.gender || character.age || character.identity) && (
+            <div className="sidebar-section">
+              <div className="char-info-grid">
+                {character.gender && <div className="char-info-item"><span>⚧</span> {character.gender === 'male' ? '男' : character.gender === 'female' ? '女' : character.gender}</div>}
+                {character.age && <div className="char-info-item"><span>🎂</span> {character.age}</div>}
+                {character.identity && <div className="char-info-item" style={{ gridColumn: '1 / -1' }}><span>🎭</span> {character.identity}</div>}
+              </div>
+            </div>
+          )}
+          {readOnly && character?.background && (
+            <div className="sidebar-section">
+              <label className="sidebar-label">📖 游戏背景</label>
+              <div className="sidebar-text" style={{ fontSize: 11, lineHeight: 1.5, opacity: 0.85 }}>{character.background}</div>
+            </div>
+          )}
 
           {!readOnly && (
             <div className="sidebar-points-row" style={{ padding: '4px 0', alignItems: 'center', gap: 8 }}>

@@ -288,6 +288,7 @@ export default function App() {
       <GameSidebar
         isOpen={showSidebar}
         readOnly={setupComplete}
+        character={character}
         onClose={() => setShowSidebar(false)}
         stories={stories}
         currentId={currentId}

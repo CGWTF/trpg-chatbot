@@ -761,6 +761,27 @@
   font-size: 13px;
 }
 
+.char-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.char-info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  background: var(--bg-card);
+  border-radius: 4px;
+}
+
+.char-info-item span {
+  font-size: 13px;
+}
+
 .sidebar-name-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 6px var(--accent-glow);
