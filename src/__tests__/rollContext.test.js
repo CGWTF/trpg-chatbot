@@ -237,6 +237,16 @@ describe('parseAIForStateChanges', () => {
     });
   });
 
+  it('merges multiple STATE tags on separate lines', () => {
+    const text = '[STATE:add_inventory=钥匙]\n[STATE:add_clue=墙上有爪痕]\n[STATE:hp=-3]';
+    const result = parseAIForStateChanges(text);
+    expect(result).toEqual({
+      add_inventory: '钥匙',
+      add_clue: '墙上有爪痕',
+      hp: '-3',
+    });
+  });
+
   it('returns null for no STATE tag', () => {
     expect(parseAIForStateChanges('普通文本')).toBeNull();
   });

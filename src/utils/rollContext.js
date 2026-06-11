@@ -201,20 +201,20 @@ export function parseAIForRollRequest(text) {
  * @returns {object | null} 解析后的变更对象
  */
 export function parseAIForStateChanges(text) {
-  const pattern = /\[STATE:([^\]]+)\]/;
-  const match = text.match(pattern);
-  if (!match) return null;
-
+  const pattern = /\[STATE:([^\]]+)\]/g;
   const changes = {};
-  const pairs = match[1].split(',');
 
-  for (const pair of pairs) {
-    const eqIdx = pair.indexOf('=');
-    if (eqIdx === -1) continue;
-    const key = pair.slice(0, eqIdx).trim();
-    const value = pair.slice(eqIdx + 1).trim();
-    if (key && value) {
-      changes[key] = value;
+  // 匹配所有 STATE 标签（支持单行逗号分隔 + 多行多个标签）
+  for (const match of text.matchAll(pattern)) {
+    const pairs = match[1].split(',');
+    for (const pair of pairs) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = pair.slice(0, eqIdx).trim();
+      const value = pair.slice(eqIdx + 1).trim();
+      if (key && value) {
+        changes[key] = value;
+      }
     }
   }
 
