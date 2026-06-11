@@ -23,7 +23,7 @@ function getTime() {
 const WELCOME_MSG = {
   text: `🐉 **欢迎来到跑团故事机！**
 
-我是你的 AI 守秘人。你可以直接描述角色的行动，我会像真正的 TRPG 游戏主持人一样，推动剧情、扮演 NPC、在你尝试有风险的动作时请求检定。
+我是你的 守秘人。你可以直接描述角色的行动，我会像真正的 TRPG 游戏主持人一样，推动剧情、扮演 NPC、在你尝试有风险的动作时请求检定。
 
 **点击右上角 📜 开始新冒险** — 创建你的角色卡，选择故事规模，我会根据你设定的游戏背景，为你呈现一个独一无二的互动故事。
 
@@ -210,7 +210,15 @@ export default function App() {
       pacing,
       setupComplete: true,
     }));
-  }, [setCharacter, renameStory]);
+    // 延迟让角色卡状态生效后，触发 AI 生成专属开场白
+    setTimeout(() => {
+      if (!apiKey) return;
+      // 引导 AI 基于角色卡生成专属开场白
+      const introPrompt = '开始冒险';
+      addMessage({ text: introPrompt, type: 'user', time: getTime() });
+      callAI(introPrompt);
+    }, 500);
+  }, [setCharacter, renameStory, apiKey, addMessage, callAI]);
 
   // ── UI 开关 ──
   const [showSettings, setShowSettings] = useState(false);

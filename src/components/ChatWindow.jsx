@@ -17,7 +17,7 @@ export default function ChatWindow({ messages, streamingText, isStreaming, onIma
           <div className="welcome-message">
             <div className="welcome-icon">🐉</div>
             <h2>欢迎来到跑团故事机</h2>
-            <p>你的 AI 守秘人已就位</p>
+            <p>你的守秘人已就位</p>
             <div className="welcome-features">
               <div className="welcome-feature">
                 <span>🐉</span> 互动叙事 — AI 驱动 TRPG 跑团，动态剧情分支
