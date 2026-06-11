@@ -32,6 +32,7 @@ app.use(express.json({ limit: '1mb' }));
 const PORT = process.env.PORT || 3001;
 const DEEPSEEK_BASE = 'https://api.deepseek.com';
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8001';
 
 // 系统提示词 - GM 人设
 const SYSTEM_PROMPT = `你是一位资深的 TRPG 守秘人(Game Master)，带领玩家进行互动故事冒险。
@@ -115,6 +116,35 @@ DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难
 使用 STATE 标签，放在粗体标记之后：
 [STATE:hp=-5] 或 [STATE:sp=+3] 或 [STATE:location=新地点]
 
+当玩家实际进入、抵达、返回或离开后到达一个地点时，你必须同时输出：
+**当前位置：地点名**
+[STATE:location=地点名]
+
+仅仅提及、听说或发现一个地点时，不要更新当前位置。
+
+### 推理提案
+当至少两条已知线索能够支持一个有意义的推测时，在回复最末尾输出一个推理数据块：
+
+<TRPG_REASONING>
+{"hypotheses":[{"statement":"简短推测","evidence":["支持线索1","支持线索2"],"contradictions":[],"confidence":55,"status":"open"}]}
+</TRPG_REASONING>
+
+规则：
+- 推测不是事实，不得在证据不足时标记 confirmed
+- evidence 必须引用回复或对话中已经出现的明确线索
+- confidence 使用 0~100；存在明显反证时降低置信度并写入 contradictions
+- 同一推测获得新证据时，使用相同 statement 更新它
+- 没有足够线索时不要输出推理数据块
+
+### 人物、地点与关系知识块
+当回复中首次出现有明确姓名、代号或唯一专名的重要人物、地点、组织，或它们之间出现明确关系时，在最末尾输出：
+
+<TRPG_KNOWLEDGE>
+{"entities":[{"name":"林默","type":"person","description":"黑石庄园管家"},{"name":"黑石庄园","type":"place","description":"案发地"}],"relations":[{"source":"林默","target":"黑石庄园","type":"works_at","evidence":["林默负责庄园日常事务"]}]}
+</TRPG_KNOWLEDGE>
+
+实体 type 只能是 person、place、organization。person 必须拥有明确姓名、代号或唯一专名；不要抽取“老管家”“守卫”“神秘女子”“一名旅客”等无名 NPC 泛称。关系必须有明确文本证据，不得把推测当成事实关系。
+
 ## 你的叙事风格
 - 用生动、沉浸式的语言描述场景、人物和事件
 - 营造氛围感——紧张、神秘、热血或恐怖
@@ -139,20 +169,26 @@ DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难
 - 第 5 个转折时，你应主动通过 NPC 或场景提示：
   "冒险即将进入最终阶段。是时候准备面对真正的考验了。"
 
-### 对话轮次感知
-- 全程约 150~300 轮对话
-- 当感受到对话已进行了较长时间（约 200 轮后），主动推进剧情走向高潮
-- 在终章阶段减少无关检定和小事件，聚焦主线冲突
+### 对话轮次感知（严格遵守）
+- 标准故事：全程控制在 200~300 轮内完整收束
+- 约 150 轮后应开始为终章埋线，减少无关支线引入
+- 约 200 轮时主动推进剧情高潮——聚焦最终冲突，减少检定频次
+- 约 280 轮时必须进入最终 BOSS / 最终抉择场景
+- 终章阶段：聚焦主线，紧凑叙事，快速推进结局
+
+### 扩展故事（玩家明确要求更大世界观时）
+- 可以扩展至 300~450 轮，但必须提前告知玩家
+- 约 350 轮时启动终章推进
 
 ### 结局触发
-- 当你判断故事已完成 5 个主要转折、且玩家已准备好面对最终挑战时，主动推进终章
+- 当你判断故事已完成主要转折、且玩家已准备好面对最终挑战时，主动推进终章
 - 终章开场示例：
   "你握紧了武器。漫长的冒险终于走到了这一刻——前方就是一切的终点。请告诉我，你准备好了吗？"
 - 给予玩家一个有意义的最终抉择，让结局由玩家的选择决定
 
 ### 收束原则
 - 终章结束后，简要交代角色的命运和世界的变化
-- 不要开启新冒险，而是在合适的地方画上句号
+- 不要在靠近轮次上限时再引入新的大支线或新势力
 - 如果玩家表示想继续，可以开启新的短篇冒险
 
 ## 属性缩写参考
@@ -232,12 +268,18 @@ function injectCheckReminder(messages) {
   // 统计对话进度
   const userMsgCount = messagesCopy.filter((m) => m.role === 'user').length;
   let pacingHint = '';
-  if (userMsgCount > 200) {
+  if (userMsgCount > 350) {
     pacingHint =
-      '\n[📕 终章推进：对话已超过 200 轮。你必须主动推进故事进入终章阶段——减少无关支线，聚焦主线冲突的最终解决。在 2~3 轮内引导玩家面对最终挑战。]';
-  } else if (userMsgCount > 120) {
+      '\n[📕 扩展故事终章：对话已超过 350 轮。必须立即收束全部支线，2~3 轮内引导到最终结局。不要再引入任何新线索或地点。]';
+  } else if (userMsgCount > 280) {
     pacingHint =
-      '\n[📖 节奏提示：对话已进行较长时间。开始为结局埋下伏笔，减少新支线的引入，聚焦当前主线。]';
+      '\n[📕 终章推进：对话已超过 280 轮。必须进入最终 BOSS/最终抉择场景，聚焦主线冲突的解决。不要再开新支线。]';
+  } else if (userMsgCount > 200) {
+    pacingHint =
+      '\n[📖 终章预备：对话已超过 200 轮。开始为结局埋线，减少检定频次和无关事件。在 20~30 轮内推进到最终阶段。]';
+  } else if (userMsgCount > 150) {
+    pacingHint =
+      '\n[📖 节奏提示：对话已进行较长时间。减少引入新支线和新地点，聚焦当前主线的关键冲突。除非玩家明确要求扩展世界观，否则避免展开新势力。]';
   }
 
   // 在用户消息末尾直接追加指令（AI 最难忽略）
@@ -256,7 +298,11 @@ STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
 **获得道具：物品名**
 **发现线索：线索简述**
 **得知场所：场所名**
+**当前位置：玩家实际到达的地点名**
 每项单独一行，不要忘记！
+
+若至少两条明确线索支持一个推测，在所有其他标记之后附加 <TRPG_REASONING> JSON 推理数据块。
+若出现有明确姓名、代号或唯一专名的重要人物、地点、组织或明确关系，再附加 <TRPG_KNOWLEDGE> JSON 知识块；不要把无名 NPC 泛称作为人物实体。
 
 如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]` +
       pacingHint,
@@ -265,9 +311,55 @@ STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
   return messagesCopy;
 }
 
+function normalizeReasoningContext(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const cleanList = (items) => Array.isArray(items)
+    ? [...new Set(items
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim().slice(0, 120))
+      .filter(Boolean))]
+      .slice(0, 50)
+    : [];
+
+  return {
+    clues: cleanList(source.clues),
+    inventory: cleanList(source.inventory),
+    locations: cleanList(source.locations),
+    currentLocation: typeof source.currentLocation === 'string'
+      ? source.currentLocation.trim().slice(0, 120)
+      : '',
+  };
+}
+
+function buildReasoningContextMessage(value) {
+  const context = normalizeReasoningContext(value);
+  const formatList = (items) => items.length ? items.map((item) => `- ${item}`).join('\n') : '- 无';
+  return `以下是应用已保存的当前故事事实记录。续写故事时保持一致；生成推理假设时，优先原样引用这些记录作为 evidence。
+
+[线索日志]
+${formatList(context.clues)}
+
+[持有道具]
+${formatList(context.inventory)}
+
+[已知场所]
+${formatList(context.locations)}
+
+[当前位置]
+${context.currentLocation || '未知'}
+
+可以使用本轮新叙事中明确写出的事实作为证据，但不得引用未出现在上述记录或本轮叙事中的信息。推理至少需要两条明确证据。`;
+}
+
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages, apiKey } = req.body;
+    const { messages, apiKey, reasoningContext } = req.body;
+    if (!Array.isArray(messages) || messages.length > 500) {
+      return res.status(400).json({ error: 'messages 必须是长度不超过 500 的数组' });
+    }
+    if (messages.some((m) => !m || !['user', 'assistant'].includes(m.type) || typeof m.text !== 'string' || m.text.length > 20000)) {
+      return res.status(400).json({ error: 'messages 包含无效消息' });
+    }
 
     const dsApiKey = apiKey || process.env.DEEPSEEK_API_KEY;
 
@@ -296,6 +388,7 @@ app.post('/api/chat', async (req, res) => {
 
     let chatMessages = [
       { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: buildReasoningContextMessage(reasoningContext) },
       ...historyMessages,
     ];
 
@@ -380,6 +473,33 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+app.post('/api/knowledge/extract', async (req, res) => {
+  try {
+    const { text, graph } = req.body;
+    if (typeof text !== 'string' || !text.trim() || text.length > 20000) {
+      return res.status(400).json({ error: 'text 必须是长度不超过 20000 的非空字符串' });
+    }
+    const response = await fetch(`${NLP_SERVICE_URL}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        graph: graph && typeof graph === 'object' ? graph : { entities: [], relations: [] },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) {
+      return res.status(502).json({ error: `NLP 服务请求失败 (${response.status})` });
+    }
+    return res.json(await response.json());
+  } catch (err) {
+    return res.status(503).json({
+      error: 'NLP 服务不可用，请运行 npm run dev:nlp',
+      detail: err.message,
+    });
+  }
+});
+
 // ========== 图片生成代理 ==========
 // 支持多种后端: Pollinations (免费) / OpenAI / 自定义兼容 API
 const IMAGE_CACHE = new Map();
@@ -406,7 +526,7 @@ const BLOCKED_IP_PATTERNS = [
 ];
 
 function validateImageBaseUrl(baseUrl) {
-  if (!baseUrl) return;
+  if (!baseUrl) throw new Error('自定义图片 API 缺少 Base URL');
   try {
     const url = new URL(baseUrl);
     // 必须 HTTPS
@@ -433,18 +553,50 @@ function validateImageBaseUrl(baseUrl) {
   }
 }
 
+function validatePublicImageUrl(rawUrl) {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'https:') throw new Error('图片下载地址必须使用 HTTPS');
+  const hostname = url.hostname.toLowerCase();
+  if (BLOCKED_IP_PATTERNS.some((pattern) => pattern.test(hostname))) {
+    throw new Error('图片下载地址不能指向内网或回环地址');
+  }
+  return url;
+}
+
+async function downloadImage(rawUrl) {
+  const url = validatePublicImageUrl(rawUrl);
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok) throw new Error(`图片下载失败 (${response.status})`);
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.startsWith('image/')) throw new Error('远程地址返回的不是图片');
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > 20 * 1024 * 1024) throw new Error('远程图片超过 20MB');
+  const data = Buffer.from(await response.arrayBuffer());
+  if (data.length > 20 * 1024 * 1024) throw new Error('远程图片超过 20MB');
+  return { data, contentType };
+}
+
 app.post('/api/image', async (req, res) => {
   try {
     const { prompt, provider, apiKey, baseUrl, model, size } = req.body;
-    if (!prompt) {
+    if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 4000) {
       return res.status(400).json({ error: '请提供 prompt 参数' });
+    }
+    if (provider !== undefined && !['pollinations', 'openai', 'custom'].includes(provider)) {
+      return res.status(400).json({ error: `未知的图片引擎: ${provider}` });
     }
 
     // API key: 优先用客户端传入的，否则回退到服务端 .env
     const imgApiKey = apiKey || process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY;
 
     // 缓存检查
-    const cacheKey = `${provider || 'pollinations'}:${prompt.substring(0, 200)}`;
+    const cacheKey = JSON.stringify({
+      provider: provider || 'pollinations',
+      baseUrl: baseUrl || '',
+      model: model || '',
+      size: size || '',
+      prompt,
+    });
     const cached = IMAGE_CACHE.get(cacheKey);
     if (cached && Date.now() - cached.time < CACHE_TTL) {
       res.setHeader('Content-Type', cached.contentType);
@@ -559,9 +711,7 @@ app.post('/api/image', async (req, res) => {
       }
 
       if (imgData?.url) {
-        const download = await fetch(imgData.url);
-        const contentType = download.headers.get('content-type') || 'image/png';
-        const data = Buffer.from(await download.arrayBuffer());
+        const { data, contentType } = await downloadImage(imgData.url);
         IMAGE_CACHE.set(cacheKey, { data, contentType, time: Date.now() });
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=600');

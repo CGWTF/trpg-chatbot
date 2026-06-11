@@ -62,7 +62,7 @@ export default function useGameState(gameState, setGameState) {
             next = applyStateChanges(next, changes);
           }
           for (const item of scanned.items) {
-            if (!next.inventory.includes(item)) {
+            if (!next.inventory.includes(item) && next.inventory.length < 12) {
               next = applyStateChanges(next, { add_inventory: item });
             }
           }
@@ -72,7 +72,7 @@ export default function useGameState(gameState, setGameState) {
             }
           }
           for (const loc of scanned.locations) {
-            if (!next.locations.includes(loc)) {
+            if (!next.locations.includes(loc) && next.locations.length < 8) {
               next = applyStateChanges(next, { add_location: loc });
             }
           }

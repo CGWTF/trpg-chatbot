@@ -221,6 +221,128 @@ export function parseAIForStateChanges(text) {
   return Object.keys(changes).length > 0 ? changes : null;
 }
 
+/**
+ * 解析 AI 回复末尾的结构化推理提案。
+ *
+ * <TRPG_REASONING>
+ * {"hypotheses":[{"statement":"管家可能持有备用钥匙","evidence":["钥匙孔无破坏痕迹"],"contradictions":[],"confidence":55,"status":"open"}]}
+ * </TRPG_REASONING>
+ */
+export function parseAIForReasoningUpdates(text) {
+  const match = text.match(/<TRPG_REASONING>\s*([\s\S]*?)\s*<\/TRPG_REASONING>/i);
+  if (!match) return [];
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed.hypotheses)) return [];
+    return parsed.hypotheses
+      .map(normalizeHypothesis)
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function groundHypotheses(updates = [], context = {}) {
+  const knownFacts = [
+    ...normalizeFactSources(context.clues, 'clue'),
+    ...normalizeFactSources(context.inventory, 'item'),
+    ...normalizeFactSources(context.locations, 'location'),
+    ...normalizeFactSources(context.currentLocation ? [context.currentLocation] : [], 'location'),
+  ];
+  const narrative = String(context.generatedText || '')
+    .replace(/<TRPG_REASONING>[\s\S]*?<\/TRPG_REASONING>/gi, '');
+
+  return updates
+    .map((hypothesis) => {
+      const evidenceSources = hypothesis.evidence
+        .map((text) => groundReasoningText(text, knownFacts, narrative))
+        .filter(Boolean);
+      if (evidenceSources.length < 2) return null;
+
+      const contradictionSources = hypothesis.contradictions
+        .map((text) => groundReasoningText(text, knownFacts, narrative))
+        .filter(Boolean);
+      const hasRecordedEvidence = evidenceSources.some((item) => item.source !== 'narrative');
+
+      return {
+        ...hypothesis,
+        evidence: evidenceSources.map((item) => item.text),
+        contradictions: contradictionSources.map((item) => item.text),
+        evidenceSources,
+        contradictionSources,
+        confidence: hasRecordedEvidence
+          ? hypothesis.confidence
+          : Math.min(hypothesis.confidence, 45),
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeFactSources(values, source) {
+  return [...new Set((values || []).filter((value) => typeof value === 'string'))]
+    .map((value) => ({ source, value: value.trim(), comparable: comparableReasoningText(value) }))
+    .filter((item) => item.comparable);
+}
+
+function groundReasoningText(text, knownFacts, narrative) {
+  const comparable = comparableReasoningText(text);
+  const matched = knownFacts.find((fact) => {
+    if (fact.comparable === comparable) return true;
+    return Math.min(fact.comparable.length, comparable.length) >= 4
+      && (fact.comparable.includes(comparable) || comparable.includes(fact.comparable));
+  });
+  if (matched) return { text, source: matched.source, matchedValue: matched.value };
+  if (text && narrative.includes(text)) return { text, source: 'narrative', matchedValue: text };
+  return null;
+}
+
+function comparableReasoningText(value) {
+  return String(value || '').toLocaleLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
+}
+
+function normalizeHypothesis(value) {
+  if (!value || typeof value.statement !== 'string') return null;
+  const statement = value.statement.trim().slice(0, 120);
+  const evidence = normalizeReasoningList(value.evidence);
+  if (!statement || evidence.length === 0) return null;
+  return {
+    id: typeof value.id === 'string' && value.id ? value.id : createReasoningId(statement),
+    statement,
+    evidence,
+    contradictions: normalizeReasoningList(value.contradictions),
+    confidence: Math.max(0, Math.min(100, Number(value.confidence) || 0)),
+    status: ['open', 'confirmed', 'rejected'].includes(value.status) ? value.status : 'open',
+  };
+}
+
+function normalizeReasoningList(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item) => typeof item === 'string')
+    .map((item) => item.trim().slice(0, 120))
+    .filter(Boolean))];
+}
+
+function createReasoningId(statement) {
+  let hash = 0;
+  for (const char of statement) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  return `hypothesis_${Math.abs(hash).toString(36)}`;
+}
+
+export function mergeHypotheses(current = [], updates = []) {
+  const merged = current.map((item) => ({ ...item }));
+  for (const update of updates) {
+    const index = merged.findIndex((item) => item.id === update.id || item.statement === update.statement);
+    if (index === -1) {
+      merged.push(update);
+    } else {
+      merged[index] = { ...merged[index], ...update, id: merged[index].id };
+    }
+  }
+  return merged;
+}
+
 // ── 启发式回复扫描 ──
 
 /**
@@ -235,11 +357,13 @@ export function scanAIForItems(text) {
   const items = [];
   const clues = [];
   const locations = [];
+  let currentLocation = null;
 
   // ── 策略1：粗体标记精准匹配 ──
   const boldItem = /\*\*获得道具[：:]\s*(.+?)\*\*/g;
   const boldClue = /\*\*发现线索[：:]\s*(.+?)\*\*/g;
   const boldLocation = /\*\*得知场所[：:]\s*(.+?)\*\*/g;
+  const boldCurrentLocation = /\*\*当前位置[：:]\s*(.+?)\*\*/g;
 
   for (const m of text.matchAll(boldItem)) {
     const name = m[1].trim();
@@ -252,6 +376,10 @@ export function scanAIForItems(text) {
   for (const m of text.matchAll(boldLocation)) {
     const name = m[1].trim();
     if (name.length >= 2 && name.length <= 30) locations.push(name);
+  }
+  for (const m of text.matchAll(boldCurrentLocation)) {
+    const name = m[1].trim();
+    if (name.length >= 2 && name.length <= 30) currentLocation = name;
   }
 
   // ── 策略2：emoji 分区列表（粗体没匹配到时启用） ──
@@ -275,10 +403,32 @@ export function scanAIForItems(text) {
     }
   }
 
+  // 明确移动叙述兜底。仅匹配带动作主体和目标地点的句式，避免把提及地点误判为当前位置。
+  if (!currentLocation) {
+    const movementPatterns = [
+      /(?:你|你们|众人|队伍|一行人|玩家们)(?:已经|终于|随后|接着|缓缓|小心地|悄悄地)?(?:进入|抵达|来到|到达|返回|回到|走进|踏入|赶到|前往)[了向]?([^，。！？\n]{2,24})/,
+      /(?:当前位于|目前位于|现在位于|此刻身处)[：:\s]*([^，。！？\n]{2,24})/,
+    ];
+    for (const pattern of movementPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        currentLocation = match[1]
+          .replace(/(?:之中|里面|内部|附近|门口|入口)$/, '')
+          .trim();
+        break;
+      }
+    }
+  }
+
+  if (currentLocation && !locations.includes(currentLocation)) {
+    locations.push(currentLocation);
+  }
+
   return {
     items: [...new Set(items)],
     clues: [...new Set(clues)],
     locations: [...new Set(locations)],
+    currentLocation,
   };
 }
 
@@ -315,16 +465,16 @@ function parseEmojiSections(text) {
 
     // 跳过疑似其他分区标题的行，并停止当前目标（避免后续内容误加入）
     const bareLine = line.replace(/\*\*/g, '');
-    if (/^[⏳💡⚠️⚔️🗺️🏷️🎯]/u.test(bareLine) && /[：:]/.test(bareLine)) {
+    if (/^(?:⏳|💡|⚠️|⚔️|🗺️|🏷️|🎯)/u.test(bareLine) && /[：:]/.test(bareLine)) {
       currentTarget = null;
       continue;
     }
 
     let cleaned = line
       .replace(/\*\*/g, '')
-      .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
+      .replace(/^[\s\d]*[.、)\-\s•*]*\s*/, '')
       .replace(/[（(][^)）]*[）)]/g, '')
-      .replace(/[—\-—].*$/, '')
+      .replace(/[—-].*$/, '')
       .trim();
     if (cleaned.length >= 2 && cleaned.length <= 40 && !noise.test(cleaned)) {
       if (!currentTarget.includes(cleaned)) currentTarget.push(cleaned);
@@ -345,6 +495,20 @@ const DEFAULT_GAME_STATE = {
   clues: [],       // 线索日志
   locations: [],   // 已知场所
   location: '',    // 当前位置
+  hypotheses: [],  // 带证据的推理假设
+  knowledgeGraph: {
+    entities: [],
+    relations: [],
+    analysis: {
+      nodeCount: 0,
+      relationCount: 0,
+      componentCount: 0,
+      centralEntities: [],
+      isolatedEntityIds: [],
+    },
+    extractor: '',
+    embeddingRecommended: false,
+  },
 };
 
 export function getDefaultGameState() {
@@ -417,9 +581,12 @@ export function applyStateChanges(prev, changes) {
     }
   }
 
-  // 物品添加
+  // 物品添加（上限 12）
   if (changes.add_inventory) {
-    next.inventory.push(changes.add_inventory);
+    if (!next.inventory.includes(changes.add_inventory)) {
+      next.inventory.push(changes.add_inventory);
+    }
+    if (next.inventory.length > 12) next.inventory = next.inventory.slice(-12);
   }
 
   // 物品移除
@@ -433,9 +600,12 @@ export function applyStateChanges(prev, changes) {
     next.clues.push(changes.add_clue);
   }
 
-  // 场所添加
+  // 场所添加（上限 8）
   if (changes.add_location) {
-    next.locations.push(changes.add_location);
+    if (!next.locations.includes(changes.add_location)) {
+      next.locations.push(changes.add_location);
+    }
+    if (next.locations.length > 8) next.locations = next.locations.slice(-8);
   }
 
   // 位置
