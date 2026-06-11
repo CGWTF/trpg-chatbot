@@ -105,7 +105,8 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
 
 /* ── Header ── */
 .app-header {
-  background: linear-gradient(180deg, #111d2e 0%, #0f1624 100%);
+  background: rgba(17,29,46,0.92);
+  backdrop-filter: blur(8px);
   border-bottom: 2px solid var(--border);
   box-shadow: 0 0 20px rgba(74, 122, 170, 0.15);
 }
@@ -353,9 +354,15 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
   background: var(--accent);
 }
 
-/* ── 聊天区 ── */
+/* ── 聊天区半透明透出背景 ── */
 .chat-window {
-  background: var(--bg-primary);
+  background: transparent;
+}
+
+.chat-messages {
+  background: rgba(8,13,24,0.85);
+  border-radius: var(--radius-md);
+  padding: 16px;
 }
 
 .welcome-icon {
