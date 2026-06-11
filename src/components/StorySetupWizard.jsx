@@ -21,8 +21,6 @@ function getPacingTiers(scale) {
   return PACING_TIERS[scale] || PACING_TIERS.medium;
 }
 
-export { PACING_TIERS, getPacingTiers };
-
 export default function StorySetupWizard({ isOpen, onClose, onComplete, initialStats, initialName }) {
   const [page, setPage] = useState(1);
   const [name, setName] = useState(initialName || '');

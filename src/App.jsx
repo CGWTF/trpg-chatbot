@@ -214,20 +214,19 @@ export default function App() {
     // 直接把角色卡信息写入开场指令（不依赖异步 reasoningContext）
     const buildIntro = (c) => {
       const p = ['[故事开场指令]'];
-      p.push('角色: ' + c.name);
-      if (c.identity) p.push('身份: ' + c.identity);
-      if (c.gender) p.push('性别: ' + (c.gender === 'male' ? '男' : c.gender === 'female' ? '女' : c.gender));
-      if (c.age) p.push('年龄: ' + c.age);
-      if (c.background) p.push('游戏背景: ' + c.background);
+      p.push(`角色: ${c.name}`);
+      if (c.identity) p.push(`身份: ${c.identity}`);
+      if (c.gender) p.push(`性别: ${c.gender === 'male' ? '男' : c.gender === 'female' ? '女' : c.gender}`);
+      if (c.age) p.push(`年龄: ${c.age}`);
+      if (c.background) p.push(`游戏背景: ${c.background}`);
       p.push('');
       p.push('请为玩家撰写一段沉浸式的故事开场白：');
-      p.push('以第二人称'你'开场，将玩家直接代入角色；');
+      p.push('以第二人称「你」开场，将玩家直接代入角色；');
       p.push('基于游戏背景描绘初始场景的细节（声音、气味、光线、氛围）；');
       p.push('引入第一个情节钩子——悬念、奇怪现象或即将到来的事件；');
       p.push('200~400字，不要请求检定，纯粹叙事；');
       p.push('结尾留出行动空间让玩家做出第一个选择。');
-      return p.join('
-');
+      return p.join('\n');
     };
     setTimeout(() => {
       if (!apiKey) return;
