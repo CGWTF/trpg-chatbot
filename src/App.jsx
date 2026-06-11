@@ -40,7 +40,7 @@ const WELCOME_MSG = {
 export default function App() {
   // ── 故事/消息 ──
   const {
-    stories, currentId, messages, setMessages, addMessage, newStory, switchStory, removeStory,
+    stories, currentId, messages, setMessages, addMessage, newStory, switchStory, removeStory, renameStory,
     character, setCharacter, gameState: storyGameState, setGameState: setStoryGameState,
   } =
     useStoryManager(WELCOME_MSG);
@@ -193,6 +193,8 @@ export default function App() {
   }, [newStory, pipeline]);
 
   const handleSetupComplete = useCallback(({ storyTitle, character: char, scale: storyScale, pacing }) => {
+    const title = storyTitle || `${char.name}的冒险`;
+    renameStory(title);
     setCharacter((prev) => ({
       ...prev,
       name: char.name,
@@ -202,12 +204,12 @@ export default function App() {
       age: char.age,
       identity: char.identity,
       background: char.background,
-      storyTitle: storyTitle || `${char.name}的冒险`,
+      storyTitle: title,
       storyScale,
       pacing,
       setupComplete: true,
     }));
-  }, [setCharacter]);
+  }, [setCharacter, renameStory]);
 
   // ── UI 开关 ──
   const [showSettings, setShowSettings] = useState(false);
@@ -471,7 +473,8 @@ export default function App() {
                   <div className="story-item-content">
                     <div className="story-item-title">
                       {story.id === currentId && <span className="story-active-dot">●</span>}
-                      {story.title}
+                      <span title="点击改名" onClick={(e) => { e.stopPropagation(); const t = prompt('修改冒险名称', story.title); if (t?.trim()) renameStory(t.trim()); }}
+                        style={{ cursor: 'pointer' }}>{story.title}</span>
                     </div>
                     <div className="story-item-meta">
                       <span>{new Date(story.updatedAt).toLocaleDateString('zh-CN')}</span>

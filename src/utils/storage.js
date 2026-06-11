@@ -48,7 +48,7 @@ export function getAllStories() {
  * 保存所有存档
  */
 export function saveAllStories(stories) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories.map(serializeStory)));
 }
 
 /**
@@ -62,7 +62,8 @@ export function getCurrentStoryId() {
  * 设置当前故事 ID
  */
 export function setCurrentStoryId(id) {
-  localStorage.setItem(CURRENT_KEY, id);
+  if (id) localStorage.setItem(CURRENT_KEY, id);
+  else localStorage.removeItem(CURRENT_KEY);
 }
 
 /**
@@ -97,32 +98,36 @@ function generateId() {
 /**
  * 创建新故事
  */
-export function createStory(welcomeMsg) {
+export function createStory(welcomeMsg, defaults = {}) {
   const id = generateId();
-  const story = {
+  return {
     id,
     title: '新冒险',
     messages: [welcomeMsg],
+    character: defaults.character,
+    gameState: defaults.gameState,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  const stories = getAllStories();
-  stories.unshift(story);
-  saveAllStories(stories);
-  setCurrentStoryId(id);
-  return story;
 }
 
 /**
  * 清理无效的 blob URL (刷新页面后失效)
  */
-function cleanMessages(messages) {
+function cleanMessages(messages = []) {
   return messages.map(m => {
     if (m.image?.url?.startsWith('blob:')) {
       return { ...m, image: null };
     }
     return m;
   });
+}
+
+function serializeStory(story) {
+  return {
+    ...story,
+    messages: cleanMessages(story.messages),
+  };
 }
 
 /**
@@ -145,21 +150,17 @@ export function saveStory(id, messages) {
 }
 
 /**
- * 删除故事
+ * 重命名故事
  */
-export function deleteStory(id) {
-  const stories = getAllStories().filter(s => s.id !== id);
+export function renameStory(id, title) {
+  const stories = getAllStories();
+  const story = stories.find((s) => s.id === id);
+  if (!story) return;
+  story.title = String(title).trim().slice(0, 30) || '未命名冒险';
+  story.updatedAt = new Date().toISOString();
   saveAllStories(stories);
-  if (getCurrentStoryId() === id) {
-    setCurrentStoryId(null);
-  }
 }
 
 /**
- * 切换到指定故事
+ * 删除故事
  */
-export function switchToStory(id) {
-  setCurrentStoryId(id);
-  const stories = getAllStories();
-  return stories.find(s => s.id === id) || null;
-}

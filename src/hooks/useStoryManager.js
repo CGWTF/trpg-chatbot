@@ -1,13 +1,58 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   getAllStories,
   getCurrentStoryId,
   setCurrentStoryId,
   saveAllStories,
   createStory,
-  deleteStory,
-  switchToStory,
+  renameStory as renameStoryInStorage,
 } from '../utils/storage';
+import { getDefaultGameState } from '../utils/rollContext';
+
+const DEFAULT_CHARACTER = {
+  name: '冒险者',
+  stats: { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 },
+  pointLimit: 20,
+};
+
+function createStoryDefaults() {
+  return {
+    character: structuredClone(DEFAULT_CHARACTER),
+    gameState: getDefaultGameState(),
+  };
+}
+
+function normalizeStory(story, legacyDefaults) {
+  return {
+    ...story,
+    messages: Array.isArray(story.messages) ? story.messages : [],
+    character: {
+      ...structuredClone(DEFAULT_CHARACTER),
+      ...(story.character || legacyDefaults.character),
+      stats: { ...DEFAULT_CHARACTER.stats, ...(story.character?.stats || legacyDefaults.character.stats) },
+    },
+    gameState: { ...getDefaultGameState(), ...(story.gameState || legacyDefaults.gameState) },
+  };
+}
+
+function readLegacyDefaults() {
+  const read = (key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  };
+  return {
+    character: {
+      name: read('trpg_character_name', DEFAULT_CHARACTER.name),
+      stats: read('trpg_char_stats', DEFAULT_CHARACTER.stats),
+      pointLimit: read('trpg_point_limit', DEFAULT_CHARACTER.pointLimit),
+    },
+    gameState: read('trpg_game_state', getDefaultGameState()),
+  };
+}
 
 /**
  * 故事存档管理器（写穿模式）
@@ -17,32 +62,23 @@ import {
  */
 export default function useStoryManager(welcomeMsg) {
   // ── 初始化：一次性从 localStorage 读取 ──
-  const [stories, setStories] = useState(() => {
-    const all = getAllStories();
-    // 如果没有存档或当前 ID 对应存档不存在，就地创建一个
-    const currentId = getCurrentStoryId();
-    if (!all.length || !all.find((s) => s.id === currentId)) {
-      createStory(welcomeMsg); // 内部已写 localStorage
-      return getAllStories();
-    }
-    return all;
+  const [initial] = useState(() => {
+    const legacyDefaults = readLegacyDefaults();
+    const loaded = getAllStories().map((story) => normalizeStory(story, legacyDefaults));
+    const stories = loaded.length
+      ? loaded
+      : [createStory(welcomeMsg, createStoryDefaults())];
+    const savedId = getCurrentStoryId();
+    return {
+      stories,
+      currentId: stories.some((story) => story.id === savedId) ? savedId : stories[0].id,
+    };
   });
-
-  const [currentId, setCurrentId] = useState(() => {
-    const id = getCurrentStoryId();
-    const all = getAllStories();
-    return id && all.find((s) => s.id === id) ? id : all[0]?.id || '';
-  });
-
-  // 用 ref 追踪 render 次数，跳过首次 mount 的写回
-  const mountedRef = useRef(false);
+  const [stories, setStories] = useState(initial.stories);
+  const [currentId, setCurrentId] = useState(initial.currentId);
 
   // ── 写穿：stories 变更后同步到 localStorage ──
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return; // mount 时 localStorage 已有最新数据，跳过
-    }
     saveAllStories(stories);
     setCurrentStoryId(currentId);
   }, [stories, currentId]);
@@ -50,6 +86,8 @@ export default function useStoryManager(welcomeMsg) {
   // ── 当前故事的消息 ──
   const currentStory = stories.find((s) => s.id === currentId);
   const messages = currentStory ? currentStory.messages : [welcomeMsg];
+  const character = currentStory?.character || DEFAULT_CHARACTER;
+  const gameState = currentStory?.gameState || getDefaultGameState();
 
   // ── 写操作：同时更新 React state 和 localStorage ──
 
@@ -92,17 +130,16 @@ export default function useStoryManager(welcomeMsg) {
   );
 
   const newStory = useCallback(() => {
-    const story = createStory(welcomeMsg);
+    const story = createStory(welcomeMsg, createStoryDefaults());
     setStories((prev) => [story, ...prev]);
     setCurrentId(story.id);
   }, [welcomeMsg]);
 
   const switchStory = useCallback((id) => {
-    const s = switchToStory(id);
-    if (s) {
-      setCurrentId(id);
-    }
-  }, []);
+    setCurrentId((current) => (
+      stories.some((story) => story.id === id) ? id : current
+    ));
+  }, [stories]);
 
   const removeStory = useCallback(
     (id) => {
@@ -116,12 +153,11 @@ export default function useStoryManager(welcomeMsg) {
         });
       }
 
-      deleteStory(id);
       setStories((prev) => prev.filter((s) => s.id !== id));
 
       if (id === currentId) {
         // 删的是当前故事 → 创建新的
-        const story = createStory(welcomeMsg);
+        const story = createStory(welcomeMsg, createStoryDefaults());
         setStories((prev) => [story, ...prev]);
         setCurrentId(story.id);
       }
@@ -129,6 +165,23 @@ export default function useStoryManager(welcomeMsg) {
     [currentId, stories, welcomeMsg]
   );
 
+  const setCharacter = useCallback(
+    (updater) => updateStorySlice(setStories, currentId, 'character', updater),
+    [currentId]
+  );
+  const setGameState = useCallback(
+    (updater) => updateStorySlice(setStories, currentId, 'gameState', updater),
+    [currentId]
+  );
+
+
+  const renameCurrentStory = useCallback((title) => {
+    renameStoryInStorage(currentId, title);
+    setStories((prev) => prev.map((s) => {
+      if (s.id !== currentId) return s;
+      return { ...s, title: String(title).trim().slice(0, 30) || '未命名冒险', updatedAt: new Date().toISOString() };
+    }));
+  }, [currentId]);
   return {
     stories,
     currentId,
@@ -138,7 +191,20 @@ export default function useStoryManager(welcomeMsg) {
     newStory,
     switchStory,
     removeStory,
+    renameStory: renameCurrentStory,
+    character,
+    gameState,
+    setCharacter,
+    setGameState,
   };
+}
+
+function updateStorySlice(setStories, currentId, key, updater) {
+  setStories((prev) => prev.map((story) => {
+    if (story.id !== currentId) return story;
+    const next = typeof updater === 'function' ? updater(story[key]) : updater;
+    return { ...story, [key]: next, updatedAt: new Date().toISOString() };
+  }));
 }
 
 /** 生成故事标题 (取第一条用户消息的前20字) */
