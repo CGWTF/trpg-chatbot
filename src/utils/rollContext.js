@@ -301,18 +301,26 @@ function parseEmojiSections(text) {
   const markers = [];
   for (const def of sectionTargets) {
     for (const k of def.keys) {
-      const re = new RegExp(`${escapeRegex(k)}[^\\n]*[：:]\\s*\\n`, 'g');
+      const re = new RegExp(`^${escapeRegex(k)}[^\\n]*?[：:]`, 'gm');
       for (const m of text.matchAll(re)) {
         markers.push({ start: m.index + m[0].length, target: def.target });
       }
     }
   }
   markers.sort((a, b) => a.start - b.start);
-  if (typeof window !== 'undefined') console.log('[parseEmojiSections] 找到标记数:', markers.length, '文本头:', text.slice(0, 80));
   if (!markers.length) return { items, clues, locations };
 
+  // 收集所有标题行文本，用于过滤
+  const headerLines = new Set();
+  for (const m of markers) {
+    // 从标题开始位置向前找换行，提取标题行文本
+    const lineStart = text.lastIndexOf('\n', m.start - 1) + 1;
+    const lineEnd = text.indexOf('\n', m.start);
+    const headerText = text.slice(lineStart, lineEnd >= 0 ? lineEnd : text.length).trim();
+    if (headerText) headerLines.add(headerText);
+  }
+
   const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|与线索|与信息|与场所)$/;
-  const headerLine = /^[🎒🔍🏛️📜📍⚔️💎🎭]/;
 
   for (let i = 0; i < markers.length; i++) {
     const m = markers[i];
@@ -321,8 +329,9 @@ function parseEmojiSections(text) {
     const body = text.slice(sliceStart, sliceEnd);
 
     for (const line of body.split(/\n/)) {
-      if (headerLine.test(line.trim())) continue; // 跳过下一个分区的标题行
-      let cleaned = line
+      const trimmedLine = line.trim();
+      if (!trimmedLine || headerLines.has(trimmedLine)) continue;
+      let cleaned = trimmedLine
         .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
         .replace(/[（(][^)）]*[）)]/g, '')
         .replace(/[—\-—].*$/, '')
