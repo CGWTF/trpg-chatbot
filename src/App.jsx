@@ -1,15 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
-import StorySidebar from './components/StorySidebar';
 import GameSidebar from './components/GameSidebar';
+import InvestigationWorkspace from './components/InvestigationWorkspace';
 import useLocalStorageState from './hooks/useLocalStorageState';
 import useStoryManager from './hooks/useStoryManager';
 import usePipeline from './hooks/usePipeline';
 import useGameState from './hooks/useGameState';
 import useAIChat from './hooks/useAIChat';
 import useRollResolution from './hooks/useRollResolution';
-import useCharacterState from './hooks/useCharacterState';
 import useImageSettings from './hooks/useImageSettings';
 import createDicePlugin from './plugins/dicePlugin';
 import createRulePlugin from './plugins/rulePlugin';
@@ -39,7 +38,10 @@ const WELCOME_MSG = {
 
 export default function App() {
   // ── 故事/消息 ──
-  const { stories, currentId, messages, setMessages, addMessage, newStory, switchStory, removeStory } =
+  const {
+    stories, currentId, messages, setMessages, addMessage, newStory, switchStory, removeStory,
+    character, setCharacter, gameState: storyGameState, setGameState: setStoryGameState,
+  } =
     useStoryManager(WELCOME_MSG);
 
   // ── API Key ──
@@ -49,11 +51,24 @@ export default function App() {
   const { imageConfig, updateImageConfig, handleImageGenerate } = useImageSettings(setMessages);
 
   // ── 角色属性 ──
-  const { charStats, setCharStats, pointLimit, setPointLimit, characterName, setCharacterName } =
-    useCharacterState();
+  const charStats = character.stats;
+  const pointLimit = character.pointLimit;
+  const characterName = character.name;
+  const setCharStats = useCallback(
+    (value) => setCharacter((prev) => ({ ...prev, stats: typeof value === 'function' ? value(prev.stats) : value })),
+    [setCharacter]
+  );
+  const setPointLimit = useCallback(
+    (value) => setCharacter((prev) => ({ ...prev, pointLimit: typeof value === 'function' ? value(prev.pointLimit) : value })),
+    [setCharacter]
+  );
+  const setCharacterName = useCallback(
+    (value) => setCharacter((prev) => ({ ...prev, name: typeof value === 'function' ? value(prev.name) : value })),
+    [setCharacter]
+  );
 
   // ── 游戏状态（HP/SP/道具/线索） ──
-  const { gameState, setGameState, applyAIStateUpdate } = useGameState();
+  const { gameState, setGameState, applyAIStateUpdate } = useGameState(storyGameState, setStoryGameState);
 
   // ── AI 对话核心 ──
   const {
@@ -66,7 +81,7 @@ export default function App() {
     abortRef,
     pendingRollRequest,
     setPendingRollRequest,
-  } = useAIChat({ apiKey, addMessage, messages, onAIStateUpdate: applyAIStateUpdate });
+  } = useAIChat({ apiKey, addMessage, messages, onAIStateUpdate: applyAIStateUpdate, storyId: currentId });
 
   // ── 静态插件 + 管道 ──
   const staticPlugins = useMemo(
@@ -152,36 +167,33 @@ export default function App() {
   // ── UI 开关 ──
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [showGameSidebar, setShowGameSidebar] = useState(false);
+  const [showInvestigation, setShowInvestigation] = useState(false);
+  const [showStories, setShowStories] = useState(false);
+  const [investigationTab, setInvestigationTab] = useState('reasoning');
+
+  const openInvestigation = useCallback((tab = 'reasoning') => {
+    setInvestigationTab(tab);
+    setShowInvestigation(true);
+  }, []);
 
   // ── render ──
   return (
     <div className="app">
-      <StorySidebar
-        stories={stories}
-        currentId={currentId}
-        onSwitch={switchStory}
-        onDelete={removeStory}
-        onNew={onNewWithHook}
-        isOpen={showSidebar}
-        onClose={() => setShowSidebar(false)}
-      />
-
       <header className="app-header">
         <div className="header-left">
           <button
             className="sidebar-toggle-btn"
             onClick={() => setShowSidebar(!showSidebar)}
-            title="冒险记录"
+            title="打开冒险侧边栏"
           >
-            📜
+            ☰
           </button>
           <button
             className="sidebar-toggle-btn"
-            onClick={() => setShowGameSidebar(!showGameSidebar)}
-            title="角色状态"
+            onClick={() => openInvestigation('reasoning')}
+            title="打开调查工作台"
           >
-            🎮
+            🕵️
           </button>
           <span className="header-icon">🐉</span>
           <h1>跑团故事机</h1>
@@ -191,35 +203,39 @@ export default function App() {
           </span>
         </div>
         <div className="header-right">
-          <label className="character-name-label">
-            🧑 角色名:
-            <input
-              type="text"
-              className="character-name-input"
-              value={characterName}
-              onChange={(e) => setCharacterName(e.target.value)}
-              maxLength={20}
-              placeholder="冒险者"
-            />
-          </label>
           <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="API 设置">
             ⚙️
           </button>
-          <button className="clear-btn" onClick={onNewWithHook} title="开始新冒险">
-            ✨ 新冒险
+          <button className="clear-btn" onClick={() => setShowStories(true)} title="冒险记录">
+            📜 冒险记录
           </button>
         </div>
       </header>
 
       <GameSidebar
-        isOpen={showGameSidebar}
-        onClose={() => setShowGameSidebar(false)}
+        isOpen={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        stories={stories}
+        currentId={currentId}
+        onSwitchStory={switchStory}
+        onDeleteStory={removeStory}
+        onNewStory={onNewWithHook}
+        onOpenReasoning={() => openInvestigation('reasoning')}
         stats={charStats}
         onChange={setCharStats}
         pointLimit={pointLimit}
         onPointLimitChange={setPointLimit}
         characterName={characterName}
         onCharacterNameChange={setCharacterName}
+        gameState={gameState}
+        setGameState={setGameState}
+        activeTab={investigationTab}
+        onTabChange={setInvestigationTab}
+      />
+
+      <InvestigationWorkspace
+        isOpen={showInvestigation}
+        onClose={() => setShowInvestigation(false)}
         gameState={gameState}
         setGameState={setGameState}
       />
@@ -367,6 +383,52 @@ export default function App() {
           onQuickRoll={handleQuickRoll}
         />
       </footer>
+
+      {/* 冒险记录弹窗 */}
+      {showStories && (
+        <div className="sidebar-overlay" onClick={() => setShowStories(false)}>
+          <div className="story-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="sidebar-header">
+              <h3>📜 冒险记录</h3>
+              <button className="sidebar-close-btn" onClick={() => setShowStories(false)}>✕</button>
+            </div>
+            <button className="new-story-btn" onClick={() => { onNewWithHook(); setShowStories(false); }}>
+              ✨ 开始新冒险
+            </button>
+            <div className="story-list">
+              {stories.length === 0 && (
+                <div className="story-empty">还没有冒险记录</div>
+              )}
+              {stories.map(story => (
+                <div
+                  key={story.id}
+                  className={`story-item ${story.id === currentId ? 'story-item-active' : ''}`}
+                  onClick={() => { switchStory(story.id); setShowStories(false); }}
+                >
+                  <div className="story-item-content">
+                    <div className="story-item-title">
+                      {story.id === currentId && <span className="story-active-dot">●</span>}
+                      {story.title}
+                    </div>
+                    <div className="story-item-meta">
+                      <span>{new Date(story.updatedAt).toLocaleDateString('zh-CN')}</span>
+                      <span>{story.messages.length} 条消息</span>
+                    </div>
+                  </div>
+                  <button
+                    className="story-delete-btn"
+                    onClick={(e) => { e.stopPropagation(); if (confirm('删除？')) removeStory(story.id); }}
+                    title="删除"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
