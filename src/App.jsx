@@ -79,7 +79,14 @@ export default function App() {
     locations: gameState.locations || [],
     currentLocation: gameState.location || '',
     pacing: character.pacing || null,
-  }), [gameState.clues, gameState.inventory, gameState.locations, gameState.location, character.pacing]);
+    characterCard: setupComplete ? {
+      name: character.name,
+      gender: character.gender,
+      age: character.age,
+      identity: character.identity,
+      background: character.background,
+    } : null,
+  }), [gameState.clues, gameState.inventory, gameState.locations, gameState.location, character, setupComplete]);
 
   // ── AI 对话核心 ──
   const {
@@ -185,7 +192,7 @@ export default function App() {
     pipeline.run('onStorySaved', { id: null, action: 'new' });
   }, [newStory, pipeline]);
 
-  const handleSetupComplete = useCallback(({ character: char, scale: storyScale, pacing }) => {
+  const handleSetupComplete = useCallback(({ storyTitle, character: char, scale: storyScale, pacing }) => {
     setCharacter((prev) => ({
       ...prev,
       name: char.name,
@@ -195,6 +202,7 @@ export default function App() {
       age: char.age,
       identity: char.identity,
       background: char.background,
+      storyTitle: storyTitle || `${char.name}的冒险`,
       storyScale,
       pacing,
       setupComplete: true,

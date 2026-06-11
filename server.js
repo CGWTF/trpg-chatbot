@@ -334,6 +334,26 @@ function normalizeReasoningContext(value) {
   };
 }
 
+function buildCharacterConstraint(card) {
+  if (!card?.background && !card?.identity) return null;
+  const lines = ['[角色卡 — 故事边界约束]'];
+  if (card.name) lines.push(`角色: ${card.name}`);
+  if (card.identity) lines.push(`身份: ${card.identity}`);
+  if (card.gender) lines.push(`性别: ${card.gender}`);
+  if (card.age) lines.push(`年龄: ${card.age}`);
+  if (card.background) {
+    lines.push(`游戏背景: ${card.background}`);
+    lines.push('');
+    lines.push('你必须严格在上述背景下叙事。所有场景、NPC、势力、事件都不得跳出该世界观。');
+    lines.push('不要引入与背景无关的科幻/现代/其他世界观元素。');
+    lines.push('如果玩家试图做出完全违背背景设定的行为，用游戏内合理的方式拒绝或引导。');
+  }
+  if (card.identity) {
+    lines.push(`玩家的身份是${card.identity}，对话和叙事应始终围绕该身份展开。`);
+  }
+  return lines.join('\n');
+}
+
 function buildReasoningContextMessage(value) {
   const context = normalizeReasoningContext(value);
   const formatList = (items) => items.length ? items.map((item) => `- ${item}`).join('\n') : '- 无';
@@ -391,9 +411,16 @@ app.post('/api/chat', async (req, res) => {
 
     let chatMessages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'system', content: buildReasoningContextMessage(reasoningContext) },
-      ...historyMessages,
     ];
+
+    // 角色卡约束：强制 AI 在游戏背景内叙事
+    const characterConstraint = buildCharacterConstraint(reasoningContext?.characterCard);
+    if (characterConstraint) {
+      chatMessages.push({ role: 'system', content: characterConstraint });
+    }
+
+    chatMessages.push({ role: 'system', content: buildReasoningContextMessage(reasoningContext) });
+    chatMessages.push(...historyMessages);
 
     // 检测检定结果块并注入裁决指令
     const diceBlock = detectDiceBlock(chatMessages);

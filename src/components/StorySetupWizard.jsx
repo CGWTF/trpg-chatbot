@@ -26,6 +26,7 @@ export { PACING_TIERS, getPacingTiers };
 export default function StorySetupWizard({ isOpen, onClose, onComplete, initialStats, initialName }) {
   const [page, setPage] = useState(1);
   const [name, setName] = useState(initialName || '');
+  const [storyTitle, setStoryTitle] = useState('');
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [identity, setIdentity] = useState('');
@@ -50,6 +51,7 @@ export default function StorySetupWizard({ isOpen, onClose, onComplete, initialS
 
   const handleComplete = () => {
     onComplete({
+      storyTitle: storyTitle.trim() || `${name}的冒险`,
       character: { name, gender, age, identity, background, stats, pointLimit },
       scale,
       pacing: getPacingTiers(scale),
@@ -72,7 +74,7 @@ export default function StorySetupWizard({ isOpen, onClose, onComplete, initialS
             <>
               <div className="setup-grid">
                 <div className="setup-field">
-                  <label>🧑 角色名 *</label>
+                  <label>🧑 角色名</label>
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="冒险者" />
                 </div>
                 <div className="setup-field">
@@ -92,6 +94,10 @@ export default function StorySetupWizard({ isOpen, onClose, onComplete, initialS
                   <label>🎭 身份</label>
                   <input type="text" value={identity} onChange={(e) => setIdentity(e.target.value)} maxLength={30} placeholder="如: 流浪剑客 / 宫廷密探" />
                 </div>
+              </div>
+              <div className="setup-field" style={{ marginTop: 8 }}>
+                <label>📜 冒险名称</label>
+                <input type="text" value={storyTitle} onChange={(e) => setStoryTitle(e.target.value)} maxLength={30} placeholder="如: 凯尔敏的阴影 / 留空则自动生成" />
               </div>
               <div className="setup-field" style={{ marginTop: 4 }}>
                 <label>📖 游戏背景</label>
