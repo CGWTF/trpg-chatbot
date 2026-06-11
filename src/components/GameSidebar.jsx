@@ -15,6 +15,7 @@ export default function GameSidebar({
   characterName,
   onCharacterNameChange,
   gameState,
+  setGameState,
 }) {
   if (!isOpen) return null;
 
@@ -130,7 +131,9 @@ export default function GameSidebar({
           {/* 背包 */}
           {gameState && gameState.inventory && gameState.inventory.length > 0 && (
             <div className="sidebar-section">
-              <span className="sidebar-label">🎒 道具 ({gameState.inventory.length})</span>
+              <span className="sidebar-label">🎒 道具 ({gameState.inventory.length})
+                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, inventory: [] }))} title="清空道具">🗑️</button>
+              </span>
               <ul className="sidebar-list">
                 {gameState.inventory.map((item, i) => (
                   <li key={i} className="sidebar-list-item inventory-item">{item}</li>
@@ -142,7 +145,9 @@ export default function GameSidebar({
           {/* 线索 */}
           {gameState && gameState.clues && gameState.clues.length > 0 && (
             <div className="sidebar-section">
-              <span className="sidebar-label">🔍 线索日志 ({gameState.clues.length})</span>
+              <span className="sidebar-label">🔍 线索日志 ({gameState.clues.length})
+                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, clues: [] }))} title="清空线索">🗑️</button>
+              </span>
               <ul className="sidebar-list">
                 {gameState.clues.map((clue, i) => (
                   <li key={i} className="sidebar-list-item clue-item-sidebar">{clue}</li>
@@ -154,7 +159,9 @@ export default function GameSidebar({
           {/* 场所 */}
           {gameState && gameState.locations && gameState.locations.length > 0 && (
             <div className="sidebar-section">
-              <span className="sidebar-label">🏛️ 已知场所 ({gameState.locations.length})</span>
+              <span className="sidebar-label">🏛️ 已知场所 ({gameState.locations.length})
+                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, locations: [] }))} title="清空场所">🗑️</button>
+              </span>
               <ul className="sidebar-list">
                 {gameState.locations.map((loc, i) => (
                   <li key={i} className="sidebar-list-item location-item">{loc}</li>

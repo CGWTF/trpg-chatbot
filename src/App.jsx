@@ -53,7 +53,7 @@ export default function App() {
     useCharacterState();
 
   // ── 游戏状态（HP/SP/道具/线索） ──
-  const { gameState, applyAIStateUpdate } = useGameState();
+  const { gameState, setGameState, applyAIStateUpdate } = useGameState();
 
   // ── AI 对话核心 ──
   const {
@@ -221,6 +221,7 @@ export default function App() {
         characterName={characterName}
         onCharacterNameChange={setCharacterName}
         gameState={gameState}
+        setGameState={setGameState}
       />
 
       {showSettings && (

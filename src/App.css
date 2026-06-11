@@ -895,6 +895,23 @@
   color: #c4b5fd;
 }
 
+.sidebar-clear-btn {
+  font-size: 11px;
+  padding: 1px 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.15s;
+  margin-left: 4px;
+}
+.sidebar-clear-btn:hover {
+  opacity: 1;
+  background: rgba(248, 113, 113, 0.15);
+  border-color: var(--danger);
+}
+
 .location-item {
   background: rgba(6, 182, 212, 0.1);
   border-left: 2px solid #06b6d4;
