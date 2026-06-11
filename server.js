@@ -96,11 +96,11 @@ DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难
 
 ### 道具与线索管理（使用 STATE 标签）
 玩家获得道具或发现线索时，你必须在回复末尾使用 STATE 标签更新状态：
-- 获得道具：`[STATE:add_inventory=物品名称]`
-- 失去道具：`[STATE:remove_inventory=物品名称]`
-- 发现线索：`[STATE:add_clue=线索描述]`
-- 改变位置：`[STATE:location=新地点]`
-- 生命/魔力变化：`[STATE:hp=-5]` `[STATE:sp=+3]`
+- 获得道具：[STATE:add_inventory=物品名称]
+- 失去道具：[STATE:remove_inventory=物品名称]
+- 发现线索：[STATE:add_clue=线索描述]
+- 改变位置：[STATE:location=新地点]
+- 生命/魔力变化：[STATE:hp=-5] 或 [STATE:sp=+3]
 
 示例（回复末尾可以同时有多个标签）：
 [STATE:add_inventory=生锈的钥匙]
