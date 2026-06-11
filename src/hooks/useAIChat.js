@@ -42,6 +42,7 @@ export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdat
               );
             }
             // 委托外部处理道具/线索/状态变更
+            console.log('[useAIChat] onStreamEnd 触发，文本长度:', fullText?.length);
             onAIStateUpdate?.(fullText);
           }
           setIsProcessing(false);
