@@ -23,19 +23,10 @@ export default function useGameState() {
       const changes = parseAIForStateChanges(aiFullText);
       const scanned = scanAIForItems(aiFullText);
 
-      console.log('[useGameState] STATE标签:', changes, '| 扫描结果: 道具', scanned.items.length, '线索', scanned.clues.length, '场所', scanned.locations.length);
-      console.log('[useGameState] AI回复预览:', aiFullText.slice(0, 300));
-      console.log('[useGameState] 含粗体获得道具:', /\*\*获得道具/.test(aiFullText));
-      console.log('[useGameState] 含emoji分区:', /[🎒🔍🏛️📜]/.test(aiFullText));
-      console.log('[useGameState] 含获得了/得到了:', /获得了?|得到了?/.test(aiFullText));
-
       // 如果没有显式 STATE 标签也没有扫描到东西，跳过
       if (!changes && scanned.items.length === 0 && scanned.clues.length === 0 && scanned.locations.length === 0) {
-        console.log('[useGameState] 无更新，跳过');
         return;
       }
-
-      console.log('[useGameState] 应用更新: 道具+', scanned.items.length, '线索+', scanned.clues.length, '场所+', scanned.locations.length);
       setGameState((prev) => {
         let next = { ...prev };
         // 先应用 STATE 标签（优先级更高）

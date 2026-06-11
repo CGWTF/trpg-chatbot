@@ -291,61 +291,41 @@ function parseEmojiSections(text) {
   const clues = [];
   const locations = [];
 
-  const sectionTargets = [
-    { keys: ['🎒', '道具', '物品', '背包', '随身道具', '随身物品'], target: items },
-    { keys: ['📜', '🔍', '线索', '已获取的线索', '已知信息', '信息与线索'], target: clues },
-    { keys: ['🏛️', '📍', '场所', '已知场所', '地点', '探索'], target: locations },
-  ];
+  const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没)$/;
 
-  // 找到所有标题及其位置和目标，按出现顺序排序
-  const markers = [];
-  for (const def of sectionTargets) {
-    for (const k of def.keys) {
-      const re = new RegExp(`^${escapeRegex(k)}[^\\n]*?[：:]`, 'gm');
-      for (const m of text.matchAll(re)) {
-        markers.push({ start: m.index + m[0].length, target: def.target });
-      }
+  // 逐行扫描：检测标题行，切换当前目标
+  let currentTarget = null;
+  for (const rawLine of text.split(/\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // 检测是否是标题行
+    const stripped = line.replace(/\*\*/g, '').replace(/[：:].*$/, '');
+    if (/^(?:🎒|随身道具|随身物品|道具|物品|背包)/.test(stripped)) {
+      currentTarget = items; continue;
     }
-  }
-  markers.sort((a, b) => a.start - b.start);
-  if (!markers.length) return { items, clues, locations };
+    if (/^(?:📜|🔍|已获取的线索|已知线索|已知信息|信息与线索|线索|信息)/.test(stripped)) {
+      currentTarget = clues; continue;
+    }
+    if (/^(?:🏛️|📍|已知场所|场所|地点|探索)/.test(stripped)) {
+      currentTarget = locations; continue;
+    }
 
-  // 收集所有标题行文本，用于过滤
-  const headerLines = new Set();
-  for (const m of markers) {
-    // 从标题开始位置向前找换行，提取标题行文本
-    const lineStart = text.lastIndexOf('\n', m.start - 1) + 1;
-    const lineEnd = text.indexOf('\n', m.start);
-    const headerText = text.slice(lineStart, lineEnd >= 0 ? lineEnd : text.length).trim();
-    if (headerText) headerLines.add(headerText);
-  }
+    if (!currentTarget) continue;
 
-  const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|与线索|与信息|与场所)$/;
-
-  for (let i = 0; i < markers.length; i++) {
-    const m = markers[i];
-    const sliceStart = m.start;
-    const sliceEnd = i + 1 < markers.length ? markers[i + 1].start : text.length;
-    const body = text.slice(sliceStart, sliceEnd);
-
-    for (const line of body.split(/\n/)) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine || headerLines.has(trimmedLine)) continue;
-      let cleaned = trimmedLine
-        .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
-        .replace(/[（(][^)）]*[）)]/g, '')
-        .replace(/[—\-—].*$/, '')
-        .trim();
-      if (cleaned.length >= 2 && cleaned.length <= 40 && !noise.test(cleaned)) {
-        if (!m.target.includes(cleaned)) m.target.push(cleaned);
-      }
+    let cleaned = line
+      .replace(/\*\*/g, '')
+      .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
+      .replace(/[（(][^)）]*[）)]/g, '')
+      .replace(/[—\-—].*$/, '')
+      .trim();
+    if (cleaned.length >= 2 && cleaned.length <= 40 && !noise.test(cleaned)) {
+      if (!currentTarget.includes(cleaned)) currentTarget.push(cleaned);
     }
   }
 
   return { items, clues, locations };
 }
-
-function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 // ── 状态变更应用 ──
 
