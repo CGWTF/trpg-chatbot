@@ -224,84 +224,58 @@ export function parseAIForStateChanges(text) {
 // ── 启发式回复扫描 ──
 
 /**
- * 从 AI 回复中自动提取道具、线索和场所
+ * 从 AI 回复中提取道具、线索和场所
  *
- * 两层策略：
- * 1. 结构化摘要：识别 AI 整理的信息摘要（🎒背包 / 📜线索 / 🏛️场所 等分区）
- * 2. 自然语言：匹配"获得X""发现X"等句式（当没有 STRUCTURED 标签时）
+ * 主策略：AI 在回复末尾用粗体标记声明：
+ *   **获得道具：物品名**
+ *   **失去道具：物品名**
+ *   **发现线索：线索简述**
+ *   **得知场所：场所名**
+ *
+ * 弱回退：自然语言匹配（仅在粗体标记未匹配到时生效）
  */
 export function scanAIForItems(text) {
   const items = [];
   const clues = [];
   const locations = [];
 
-  // ── 第一层：结构化摘要解析 ──
-  // 匹配分区标题后的列表项
-  const sectionPatterns = [
-    { re: /(?:🎒\s*(?:.{0,6}?)?(?:背包|随身物品|道具|物品)[：:]*|^物品[：:]|^道具[：:])\s*\n?/gm, target: items },
-    { re: /(?:🔍\s*(?:.{0,6}?)?(?:线索|已知信息|日志)[：:]*|📜\s*(?:.{0,8}?)?(?:线索|信息)[：:]*|^线索[：:]|^信息[：:])\s*\n?/gm, target: clues },
-    { re: /(?:🏛️\s*(?:.{0,8}?)?(?:场所|地点|位置|区域)[：:]*|📍\s*(?:.{0,6}?)?(?:场所|地点)[：:]*)\s*\n?/gm, target: locations },
-  ];
+  // ── 主策略：粗体标记精准匹配 ──
+  const boldItem = /\*\*获得道具[：:]\s*(.+?)\*\*/g;
+  const boldClue = /\*\*发现线索[：:]\s*(.+?)\*\*/g;
+  const boldLocation = /\*\*得知场所[：:]\s*(.+?)\*\*/g;
 
-  const noiseWords = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|什么也没|没什么|与线索|与信息|与场所)$/;
-
-  for (const { re, target } of sectionPatterns) {
-    // 重置 lastIndex
-    re.lastIndex = 0;
-    let sectionMatch;
-    while ((sectionMatch = re.exec(text)) !== null) {
-      const startIdx = sectionMatch.index + sectionMatch[0].length;
-      // 取分区标题后的内容，到下一个分区标题或文本结束
-      const remaining = text.slice(startIdx);
-      const nextSection = remaining.search(/[🎒🔍🏛️📜📍⚔️]/);
-      const sectionBody = nextSection >= 0 ? remaining.slice(0, nextSection) : remaining;
-
-      // 提取列表项：编号列表(1. X / - X / • X) 或 逗号/分号分隔
-      const lines = sectionBody.split(/\n/);
-      for (const line of lines) {
-        const cleaned = line.replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '').replace(/[—\-].*$/, '').replace(/[（(][^)）]*[）)]/g, '').trim();
-        if (cleaned.length >= 2 && cleaned.length <= 40 && !noiseWords.test(cleaned)) {
-          target.push(cleaned);
-        }
-      }
-    }
+  for (const m of text.matchAll(boldItem)) {
+    const name = m[1].trim();
+    if (name.length >= 1 && name.length <= 20) items.push(name);
+  }
+  for (const m of text.matchAll(boldClue)) {
+    const name = m[1].trim();
+    if (name.length >= 2 && name.length <= 30) clues.push(name);
+  }
+  for (const m of text.matchAll(boldLocation)) {
+    const name = m[1].trim();
+    if (name.length >= 2 && name.length <= 30) locations.push(name);
   }
 
-  // 也提取「尚未探索的场所」等未匹配到主分区的场所列表
-  if (locations.length === 0) {
-    const exploreSection = text.match(/(?:尚未探索|已知地点|可探索|探索目标)(?:的)?(?:场所|地点|区域|位置)?[：:]*\s*\n?([\s\S]*?)(?:\n\n|\n[🎒🔍🏛️📜📍]|$)/);
-    if (exploreSection) {
-      const lines = exploreSection[1].split(/\n/);
-      for (const line of lines) {
-        const cleaned = line.replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '').replace(/[—\-].*$/, '').replace(/[（(][^)）]*[）)]/g, '').trim();
-        if (cleaned.length >= 3 && cleaned.length <= 40 && !noiseWords.test(cleaned)) {
-          locations.push(cleaned);
-        }
-      }
-    }
-  }
-
-  // ── 第二层：自然语言匹配（补充结构化没覆盖到的） ──
-  if (items.length === 0 && clues.length === 0) {
+  // ── 弱回退：自然语言（仅在所有粗体标记都没匹配到时） ──
+  if (items.length === 0 && clues.length === 0 && locations.length === 0) {
+    const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没)$/;
     const itemPatterns = [
-      /(?:获得|得到|捡起|拾起|拿到|入手|收集)[了到]?\s*[「『"']?([^，。！？\n]{2,12})[」』"']?/g,
-      /(?:掉落|爆出|赠送|交给|递给)[了]?\s*[「『"']?([^，。！？\n]{2,12})[」』"']?/g,
-      /(?:一把|一枚|一张|一块|一件|一本|一颗|一瓶)[「『]?([^，。！？\n]{2,10})[」』]?/g,
+      /(?:获得了?|得到了?|捡起了?|拾起了?|拿到了?|入手了?)[「『]?([^，。！？\n]{2,10})[」』]?/g,
     ];
     const cluePatterns = [
-      /(?:发现|察觉|注意到|意识到)[了]?\s*[「『"']?([^，。！？\n]{3,20})[」』"']?/g,
-      /记载[了着]?\s*[：:]?\s*[「『]?([^，。！？\n]{3,20})[」』]?/g,
+      /(?:发现了?|注意到|察觉到)[「『]?([^，。！？\n]{3,20})[」』]?/g,
     ];
     for (const p of itemPatterns) {
       for (const m of text.matchAll(p)) {
         const c = m[1].trim();
-        if (c.length >= 2 && c.length <= 15 && !noiseWords.test(c)) items.push(c);
+        if (c.length >= 2 && c.length <= 15 && !noise.test(c)) items.push(c);
       }
     }
     for (const p of cluePatterns) {
       for (const m of text.matchAll(p)) {
         const c = m[1].trim();
-        if (c.length >= 3 && c.length <= 25 && !noiseWords.test(c)) clues.push(c);
+        if (c.length >= 3 && c.length <= 25 && !noise.test(c)) clues.push(c);
       }
     }
   }
@@ -312,8 +286,6 @@ export function scanAIForItems(text) {
     locations: [...new Set(locations)],
   };
 }
-
-// ── 状态变更应用 ──
 
 // ── 状态变更应用 ──
 
