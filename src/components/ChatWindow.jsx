@@ -17,25 +17,22 @@ export default function ChatWindow({ messages, streamingText, isStreaming, onIma
           <div className="welcome-message">
             <div className="welcome-icon">🐉</div>
             <h2>欢迎来到跑团故事机</h2>
-            <p>我是你的冒险向导，可以帮你:</p>
+            <p>你的 AI 守秘人已就位</p>
             <div className="welcome-features">
               <div className="welcome-feature">
-                <span>🎲</span> 投骰子 — 输入 <code>/r 2d6+1</code> 或点击下方快速按钮
+                <span>🐉</span> 互动叙事 — AI 驱动 TRPG 跑团，动态剧情分支
               </div>
               <div className="welcome-feature">
-                <span>📖</span> 查规则 — 直接提问，如"AC怎么算"、"先攻规则"
+                <span>🎲</span> 检定系统 — 六维属性 + d20 检定 + 分级判定
               </div>
               <div className="welcome-feature">
-                <span>📖</span> 互动故事 — 说"开始冒险"，AI作为GM带你进入故事
+                <span>🎒</span> 道具/线索/场所 — 自动记录，持久保存
               </div>
               <div className="welcome-feature">
-                <span>🖼️</span> 场景配图 — 点 GM 回复下的"生成配图"或输入 <code>/image 描述</code>
-              </div>
-              <div className="welcome-feature">
-                <span>🎭</span> 扮演灵感 — 输入 <code>/rp</code> 获取随机提示
+                <span>🕵️</span> 调查工作台 — 推理板 + 人物关系图谱
               </div>
             </div>
-            <p className="welcome-hint">试着问我一个问题，或者说"开始冒险"来体验互动故事吧！</p>
+            <p className="welcome-hint">点击右上角 📜 开始新冒险，创建你的角色卡</p>
           </div>
         )}
 
@@ -93,9 +90,16 @@ function escapeHtml(str) {
 
 function formatStreamingText(text) {
   // 先转义 HTML 防止 XSS，再做 markdown 替换
-  return escapeHtml(text)
+  return escapeHtml(stripReasoningBlock(text))
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br/>');
+}
+
+function stripReasoningBlock(text) {
+  return text
+    .replace(/<TRPG_REASONING>[\s\S]*?<\/TRPG_REASONING>/gi, '')
+    .replace(/<TRPG_KNOWLEDGE>[\s\S]*?<\/TRPG_KNOWLEDGE>/gi, '')
+    .trim();
 }
