@@ -100,7 +100,7 @@ export default function useStoryManager(welcomeMsg) {
           return {
             ...s,
             messages: newMessages,
-            title: generateTitle(newMessages),
+            title: s.title === '新冒险' ? generateTitle(newMessages) : s.title,
             updatedAt: new Date().toISOString(),
           };
         })
@@ -120,7 +120,7 @@ export default function useStoryManager(welcomeMsg) {
           return {
             ...s,
             messages: newMessages,
-            title: generateTitle(newMessages),
+            title: s.title === '新冒险' ? generateTitle(newMessages) : s.title,
             updatedAt: new Date().toISOString(),
           };
         })
