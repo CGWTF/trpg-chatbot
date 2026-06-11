@@ -728,6 +728,195 @@
   to { transform: translateX(0); }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* ========== Game Sidebar (右侧) ========== */
+.game-sidebar {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  z-index: 101;
+  animation: slideInRight 0.25s ease;
+}
+
+.game-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-name-input {
+  padding: 7px 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.sidebar-name-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.sidebar-points-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-points {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sidebar-points.over { color: var(--danger); }
+.sidebar-points.empty { color: var(--success); }
+
+.sidebar-points-input {
+  width: 50px;
+  padding: 3px 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 属性行 */
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.stat-label { min-width: 80px; color: var(--text-secondary); }
+.stat-base  { font-family: var(--font-mono); color: var(--text-muted); font-size: 12px; }
+.stat-plus  { color: var(--text-muted); font-size: 11px; }
+.stat-input {
+  width: 40px;
+  padding: 2px 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+.stat-eq    { color: var(--text-muted); font-size: 11px; }
+.stat-attr  { font-family: var(--font-mono); color: var(--text-primary); font-weight: 600; min-width: 24px; }
+.stat-mod   { font-family: var(--font-mono); color: var(--accent); font-weight: 700; font-size: 12px; }
+
+/* HP/SP */
+.hp-sp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hp-sp-label { min-width: 20px; font-size: 14px; }
+
+.hp-sp-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hp-sp-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.hp-sp-bar.hp { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.hp-sp-bar.sp { background: linear-gradient(90deg, #0891b2, #06b6d4); }
+
+.hp-sp-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 道具 & 线索列表 */
+.sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-list-item {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.inventory-item {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 2px solid var(--success);
+  color: #86efac;
+}
+
+.clue-item-sidebar {
+  background: rgba(109, 40, 217, 0.12);
+  border-left: 2px solid #6d28d9;
+  color: #c4b5fd;
+}
+
+.sidebar-text {
+  font-size: 13px;
+  color: var(--accent-light);
+  padding: 4px 8px;
+  background: rgba(96, 165, 250, 0.08);
+  border-radius: 4px;
+}
+
+.sidebar-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.sidebar-empty-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -1296,7 +1485,7 @@
     max-width: 100%;
   }
 
-  .story-sidebar {
+  .story-sidebar, .game-sidebar {
     width: 280px;
   }
 }

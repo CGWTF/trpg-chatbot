@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import StorySidebar from './components/StorySidebar';
-import CharPanel from './components/CharPanel';
+import GameSidebar from './components/GameSidebar';
 import useLocalStorageState from './hooks/useLocalStorageState';
 import useStoryManager from './hooks/useStoryManager';
 import usePipeline from './hooks/usePipeline';
@@ -152,7 +152,7 @@ export default function App() {
   // ── UI 开关 ──
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [showCharPanel, setShowCharPanel] = useState(false);
+  const [showGameSidebar, setShowGameSidebar] = useState(false);
 
   // ── render ──
   return (
@@ -175,6 +175,13 @@ export default function App() {
             title="冒险记录"
           >
             📜
+          </button>
+          <button
+            className="sidebar-toggle-btn"
+            onClick={() => setShowGameSidebar(!showGameSidebar)}
+            title="角色状态"
+          >
+            🎮
           </button>
           <span className="header-icon">🐉</span>
           <h1>跑团故事机</h1>
@@ -204,13 +211,15 @@ export default function App() {
         </div>
       </header>
 
-      <CharPanel
+      <GameSidebar
+        isOpen={showGameSidebar}
+        onClose={() => setShowGameSidebar(false)}
         stats={charStats}
         onChange={setCharStats}
         pointLimit={pointLimit}
         onPointLimitChange={setPointLimit}
-        isOpen={showCharPanel}
-        onToggle={() => setShowCharPanel(!showCharPanel)}
+        characterName={characterName}
+        onCharacterNameChange={setCharacterName}
         gameState={gameState}
       />
 
