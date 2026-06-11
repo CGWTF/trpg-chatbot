@@ -6,6 +6,7 @@ import CharPanel from './components/CharPanel';
 import useLocalStorageState from './hooks/useLocalStorageState';
 import useStoryManager from './hooks/useStoryManager';
 import usePipeline from './hooks/usePipeline';
+import useGameState from './hooks/useGameState';
 import useAIChat from './hooks/useAIChat';
 import useRollResolution from './hooks/useRollResolution';
 import useCharacterState from './hooks/useCharacterState';
@@ -51,6 +52,9 @@ export default function App() {
   const { charStats, setCharStats, pointLimit, setPointLimit, characterName, setCharacterName } =
     useCharacterState();
 
+  // ── 游戏状态（HP/SP/道具/线索） ──
+  const { gameState, applyAIStateUpdate } = useGameState();
+
   // ── AI 对话核心 ──
   const {
     callAI,
@@ -62,8 +66,7 @@ export default function App() {
     abortRef,
     pendingRollRequest,
     setPendingRollRequest,
-    gameState,
-  } = useAIChat({ apiKey, addMessage, messages });
+  } = useAIChat({ apiKey, addMessage, messages, onAIStateUpdate: applyAIStateUpdate });
 
   // ── 静态插件 + 管道 ──
   const staticPlugins = useMemo(

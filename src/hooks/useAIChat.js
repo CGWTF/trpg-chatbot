@@ -1,11 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import useLocalStorageState from './useLocalStorageState';
-import {
-  parseAIForRollRequest,
-  parseAIForStateChanges,
-  applyStateChanges,
-  getDefaultGameState,
-} from '../utils/rollContext';
+import { parseAIForRollRequest } from '../utils/rollContext';
 import createAIPlugin from '../plugins/aiPlugin';
 
 function getTime() {
@@ -13,17 +7,15 @@ function getTime() {
 }
 
 /**
- * AI 对话核心：流式状态、callAI、插件生命周期、检定请求/状态变更解析
+ * AI 对话核心：流式状态、callAI、插件生命周期、检定请求解析
+ *
+ * onAIStateUpdate: AI 回复中包含 [STATE:...] 标签时回调，由 useGameState 处理
  */
-export default function useAIChat({ apiKey, addMessage, messages }) {
+export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdate }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [pendingRollRequest, setPendingRollRequest] = useState(null);
-  const [gameState, setGameState] = useLocalStorageState(
-    'trpg_game_state',
-    getDefaultGameState()
-  );
   const abortRef = useRef(null);
 
   // 仅创建一次 — 所有回调使用 state setter（稳定引用）
@@ -49,10 +41,8 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
                 fullText.slice(0, 120)
               );
             }
-            const stateChanges = parseAIForStateChanges(fullText);
-            if (stateChanges) {
-              setGameState((prev) => applyStateChanges(prev, stateChanges));
-            }
+            // 委托外部处理道具/线索/状态变更
+            onAIStateUpdate?.(fullText);
           }
           setIsProcessing(false);
         },
@@ -63,7 +53,7 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
           setIsProcessing(false);
         },
       }),
-    [] // state setters 稳定，无需重建
+    [] // state setters / onAIStateUpdate 稳定（由 useGameState 的 useCallback 保证）
   );
 
   const callAI = useCallback(
@@ -110,6 +100,5 @@ export default function useAIChat({ apiKey, addMessage, messages }) {
     abortRef,
     pendingRollRequest,
     setPendingRollRequest,
-    gameState,
   };
 }
