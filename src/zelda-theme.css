@@ -4,8 +4,13 @@
    ======================================== */
 
 /* ── 塞尔达深蓝波浪背景 ── */
+html, body {
+  min-height: 100vh;
+}
+
 body {
-  background: url('/bg-hyrule.png') center / cover no-repeat;
+  background: url('/bg-hyrule.png') center / cover no-repeat fixed;
+  background-color: #080d18;
 }
 
 .app {
