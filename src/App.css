@@ -940,6 +940,57 @@
   margin-top: 4px;
 }
 
+/* ========== 折叠面板 ========== */
+.fold-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.fold-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.fold-header:hover {
+  background: var(--bg-input);
+}
+
+.fold-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.fold-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.fold-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--bg-input);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.fold-body {
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.1);
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;

@@ -1,9 +1,30 @@
+import { useState } from 'react';
+
 const STAT_LABELS = {
   STR: '💪 力量', DEX: '🏃 敏捷', CON: '❤️ 体质',
   INT: '🧠 智力', WIS: '👁️ 感知', CHA: '🎭 魅力',
 };
 
 const BASE = 10;
+
+function FoldSection({ title, badge, children, defaultOpen = false, onClear }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="fold-section">
+      <div className="fold-header" onClick={() => setOpen(!open)}>
+        <span className="fold-arrow">{open ? '▼' : '▶'}</span>
+        <span className="fold-title">{title}</span>
+        {badge != null && <span className="fold-badge">{badge}</span>}
+        {onClear && (
+          <button className="sidebar-clear-btn" onClick={(e) => { e.stopPropagation(); onClear(); }} title="清空">
+            🗑️
+          </button>
+        )}
+      </div>
+      {open && <div className="fold-body">{children}</div>}
+    </div>
+  );
+}
 
 export default function GameSidebar({
   isOpen,
@@ -31,6 +52,10 @@ export default function GameSidebar({
     onChange({ ...stats, [key]: clamped });
   };
 
+  const invLen = gameState?.inventory?.length || 0;
+  const clueLen = gameState?.clues?.length || 0;
+  const locLen = gameState?.locations?.length || 0;
+
   return (
     <div className="sidebar-overlay" onClick={onClose}>
       <div className="game-sidebar" onClick={(e) => e.stopPropagation()}>
@@ -40,7 +65,7 @@ export default function GameSidebar({
         </div>
 
         <div className="game-sidebar-body">
-          {/* 角色名 */}
+          {/* 角色名 + 属性（始终展开） */}
           <div className="sidebar-section">
             <label className="sidebar-label">🧑 角色名</label>
             <input
@@ -53,8 +78,7 @@ export default function GameSidebar({
             />
           </div>
 
-          {/* 加点追踪 */}
-          <div className="sidebar-section">
+          <FoldSection title="📊 属性" badge={remaining} defaultOpen>
             <div className="sidebar-points-row">
               <span className="sidebar-label">🎯 可用加点</span>
               <span className={`sidebar-points ${remaining < 0 ? 'over' : remaining === 0 ? 'empty' : ''}`}>
@@ -70,11 +94,6 @@ export default function GameSidebar({
                 max={60}
               />
             </div>
-          </div>
-
-          {/* 六维属性 */}
-          <div className="sidebar-section">
-            <span className="sidebar-label">📊 属性</span>
             {Object.entries(STAT_LABELS).map(([key, label]) => {
               const bonus = stats[key] || 0;
               const attr = BASE + bonus;
@@ -97,12 +116,11 @@ export default function GameSidebar({
                 </div>
               );
             })}
-          </div>
+          </FoldSection>
 
-          {/* HP / SP */}
+          {/* HP/SP */}
           {gameState && (
-            <div className="sidebar-section">
-              <span className="sidebar-label">❤️💎 生命 / 魔力</span>
+            <FoldSection title="❤️💎 生命 / 魔力" defaultOpen>
               <div className="hp-sp-row">
                 <span className="hp-sp-label">❤️</span>
                 <div className="hp-sp-bar-bg">
@@ -117,7 +135,7 @@ export default function GameSidebar({
                 </div>
                 <span className="hp-sp-val">{gameState.sp}/{gameState.maxSp}</span>
               </div>
-            </div>
+            </FoldSection>
           )}
 
           {/* 位置 */}
@@ -128,55 +146,59 @@ export default function GameSidebar({
             </div>
           )}
 
-          {/* 背包 */}
-          {gameState && gameState.inventory && gameState.inventory.length > 0 && (
-            <div className="sidebar-section">
-              <span className="sidebar-label">🎒 道具 ({gameState.inventory.length})
-                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, inventory: [] }))} title="清空道具">🗑️</button>
-              </span>
+          {/* 🎒 道具 */}
+          <FoldSection
+            title="🎒 道具"
+            badge={invLen}
+            defaultOpen={invLen > 0}
+            onClear={() => setGameState((p) => ({ ...p, inventory: [] }))}
+          >
+            {invLen > 0 ? (
               <ul className="sidebar-list">
                 {gameState.inventory.map((item, i) => (
                   <li key={i} className="sidebar-list-item inventory-item">{item}</li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <div className="sidebar-empty-hint">暂无道具，冒险中会自动记录</div>
+            )}
+          </FoldSection>
 
-          {/* 线索 */}
-          {gameState && gameState.clues && gameState.clues.length > 0 && (
-            <div className="sidebar-section">
-              <span className="sidebar-label">🔍 线索日志 ({gameState.clues.length})
-                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, clues: [] }))} title="清空线索">🗑️</button>
-              </span>
+          {/* 🔍 线索 */}
+          <FoldSection
+            title="🔍 线索日志"
+            badge={clueLen}
+            defaultOpen={clueLen > 0}
+            onClear={() => setGameState((p) => ({ ...p, clues: [] }))}
+          >
+            {clueLen > 0 ? (
               <ul className="sidebar-list">
                 {gameState.clues.map((clue, i) => (
                   <li key={i} className="sidebar-list-item clue-item-sidebar">{clue}</li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <div className="sidebar-empty-hint">暂无线索，发现时会自动记录</div>
+            )}
+          </FoldSection>
 
-          {/* 场所 */}
-          {gameState && gameState.locations && gameState.locations.length > 0 && (
-            <div className="sidebar-section">
-              <span className="sidebar-label">🏛️ 已知场所 ({gameState.locations.length})
-                <button className="sidebar-clear-btn" onClick={() => setGameState((p) => ({ ...p, locations: [] }))} title="清空场所">🗑️</button>
-              </span>
+          {/* 🏛️ 场所 */}
+          <FoldSection
+            title="🏛️ 已知场所"
+            badge={locLen}
+            defaultOpen={locLen > 0}
+            onClear={() => setGameState((p) => ({ ...p, locations: [] }))}
+          >
+            {locLen > 0 ? (
               <ul className="sidebar-list">
                 {gameState.locations.map((loc, i) => (
                   <li key={i} className="sidebar-list-item location-item">{loc}</li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* 空状态提示 */}
-          {(!gameState || (gameState.inventory?.length === 0 && gameState.clues?.length === 0 && gameState.locations?.length === 0)) && (
-            <div className="sidebar-section sidebar-empty">
-              🎒 暂无道具  ·  🔍 暂无线索  ·  🏛️ 暂无场所
-              <div className="sidebar-empty-hint">道具和线索会随着冒险自动记录</div>
-            </div>
-          )}
+            ) : (
+              <div className="sidebar-empty-hint">暂无场所，探索时会自动记录</div>
+            )}
+          </FoldSection>
         </div>
       </div>
     </div>
