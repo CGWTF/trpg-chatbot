@@ -15,6 +15,7 @@ import createDicePlugin from './plugins/dicePlugin';
 import createRulePlugin from './plugins/rulePlugin';
 import createImagePlugin from './plugins/imagePlugin';
 import './App.css';
+import './zelda-theme.css';
 
 function getTime() {
   return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });

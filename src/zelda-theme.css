@@ -1,0 +1,499 @@
+/* ========================================
+   塞尔达传说 · 海拉鲁主题皮肤
+   覆盖在 App.css 之后加载，仅改色不改布局
+   ======================================== */
+
+/* ── 全局色调 ── */
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #0f1624;
+  --bg-tertiary: #1a2540;
+  --bg-card: #141e30;
+  --bg-input: #111827;
+  --border: #1e3350;
+  --border-glow: #4a7aaa;
+  --accent: #d4a843;
+  --accent-dark: #8b6914;
+  --accent-light: #f0d78c;
+  --accent-glow: rgba(212, 168, 67, 0.4);
+  --info: #5b9bd5;
+  --info-light: #7bb8e8;
+  --success: #5a9e6f;
+  --danger: #c44;
+  --danger-glow: rgba(204, 68, 68, 0.35);
+  --text-primary: #e8dcc8;
+  --text-secondary: #b0a78a;
+  --text-muted: #6e6a5e;
+  --font-body: 'Georgia', 'Noto Serif SC', serif;
+  --font-display: 'Georgia', 'Cinzel', serif;
+  --font-mono: 'Consolas', 'Courier New', monospace;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.6);
+  --shadow-glow: 0 0 18px var(--accent-glow);
+}
+
+/* ── 全局字体 ── */
+body, button, input, textarea, select {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+
+/* ── Header ── */
+.app-header {
+  background: linear-gradient(180deg, #111d2e 0%, #0f1624 100%);
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 0 20px rgba(74, 122, 170, 0.15);
+}
+
+.header-left h1 {
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.header-subtitle, .header-rounds {
+  background: rgba(212,168,67,0.08);
+  color: var(--accent-light);
+  border: 1px solid rgba(212,168,67,0.2);
+}
+
+/* ── 按钮 ── */
+.sidebar-toggle-btn, .settings-btn, .clear-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.25s;
+}
+
+.sidebar-toggle-btn:hover, .settings-btn:hover, .clear-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-light);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* ── 侧边栏 ── */
+.game-sidebar, .story-modal, .setup-modal {
+  background: linear-gradient(180deg, #111d2e 0%, #0d1524 100%);
+  border-color: var(--border);
+  box-shadow: 0 0 30px rgba(74, 122, 170, 0.2), inset 0 0 1px rgba(74,122,170,0.1);
+}
+
+.sidebar-header {
+  border-bottom: 1px solid var(--border);
+  background: rgba(212,168,67,0.03);
+}
+
+.sidebar-header h3 {
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+.sidebar-close-btn {
+  color: var(--text-muted);
+}
+
+.sidebar-close-btn:hover {
+  color: var(--accent-light);
+  background: rgba(212,168,67,0.1);
+}
+
+/* ── 侧边栏标签和输入 ── */
+.sidebar-label {
+  color: var(--accent-light);
+  text-transform: none;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-name-input, .stat-input, .sidebar-points-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.sidebar-name-input:focus, .stat-input:focus, .sidebar-points-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* ── HP/SP 条 ── */
+.hp-sp-bar-bg { background: #0a0e17; }
+.hp-sp-bar.hp { background: linear-gradient(90deg, #8b1a1a, #d44); }
+.hp-sp-bar.sp { background: linear-gradient(90deg, #1a3a6e, #3a7bd5); }
+
+/* ── 道具/线索/场所 ── */
+.inventory-item {
+  background: rgba(90,158,111,0.08);
+  border-left: 2px solid var(--success);
+  color: #8cc99a;
+}
+
+.clue-item-sidebar {
+  background: rgba(91,155,213,0.08);
+  border-left: 2px solid var(--info);
+  color: #8ab8e0;
+}
+
+.location-item {
+  background: rgba(212,168,67,0.08);
+  border-left: 2px solid var(--accent);
+  color: var(--accent-light);
+}
+
+/* ── Modal 塞尔达风格加强 ── */
+.setup-modal, .story-modal {
+  background: linear-gradient(180deg, #0f1a2e 0%, #0a1222 100%);
+  border: 2px solid var(--border);
+  box-shadow:
+    0 0 40px rgba(74,122,170,0.25),
+    0 0 80px rgba(74,122,170,0.08),
+    inset 0 0 1px rgba(212,168,67,0.05);
+  overflow: visible !important;
+}
+
+.setup-modal::before, .story-modal::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 20px; right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.6;
+}
+
+.setup-modal .sidebar-header, .story-modal .sidebar-header {
+  background: linear-gradient(180deg, rgba(212,168,67,0.06) 0%, transparent 100%);
+  padding: 18px 24px;
+}
+
+.setup-modal .sidebar-header h3, .story-modal .sidebar-header h3 {
+  font-size: 17px;
+  color: var(--accent);
+  text-shadow: 0 0 14px var(--accent-glow);
+}
+
+/* 弹窗底部按钮 */
+.setup-footer {
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.15);
+}
+
+.setup-btn.primary {
+  background: linear-gradient(180deg, #a07828, #6b4f14);
+  border: 1px solid var(--accent);
+  color: #f0d78c;
+  text-shadow: 0 0 6px rgba(212,168,67,0.4);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.setup-btn.primary:hover {
+  background: linear-gradient(180deg, #c09638, #8b6914);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.setup-btn.secondary {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* 故事规模卡片 */
+.setup-scale-card {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+}
+
+.setup-scale-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.setup-scale-header span {
+  color: var(--accent);
+}
+
+.pacing-dot {
+  background: rgba(91,155,213,0.12);
+  color: var(--info-light);
+}
+
+/* 故事列表 */
+.story-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.story-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.story-item-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+  background: rgba(212,168,67,0.05);
+}
+
+.story-active-dot {
+  color: var(--accent);
+  text-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* 新冒险按钮 */
+.new-story-btn {
+  background: linear-gradient(180deg, rgba(212,168,67,0.15) 0%, rgba(139,105,20,0.1) 100%);
+  border: 1px solid rgba(212,168,67,0.3);
+  color: var(--accent-light);
+}
+
+.new-story-btn:hover {
+  background: linear-gradient(180deg, rgba(212,168,67,0.25) 0%, rgba(139,105,20,0.2) 100%);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* ── 设置面板 ── */
+.settings-panel {
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border);
+}
+
+.settings-content h3 {
+  color: var(--accent);
+}
+
+.api-key-input, .settings-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.api-key-input:focus, .settings-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.settings-save-btn {
+  background: var(--accent-dark);
+  color: #fff;
+}
+
+.settings-save-btn:hover {
+  background: var(--accent);
+}
+
+/* ── 聊天区 ── */
+.chat-window {
+  background: var(--bg-primary);
+}
+
+.welcome-icon {
+  filter: drop-shadow(0 0 20px rgba(212,168,67,0.4));
+}
+
+.welcome-message h2 {
+  color: var(--accent);
+  text-shadow: 0 0 14px var(--accent-glow);
+}
+
+.welcome-feature {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.welcome-feature:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* ── 消息气泡 ── */
+.message-avatar {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.message-user .message-avatar {
+  background: rgba(212,168,67,0.15);
+  border-color: var(--accent);
+}
+
+.message-text {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.message-user .message-text {
+  background: rgba(212,168,67,0.08);
+  border-color: rgba(212,168,67,0.3);
+}
+
+.message-bot .message-text {
+  background: linear-gradient(135deg, #121e30, #0f1928);
+  border-color: var(--border);
+}
+
+.message-dice .message-text {
+  background: linear-gradient(135deg, #1a202c, #0f1a26);
+  border-color: var(--info);
+}
+
+.message-system .message-text {
+  background: rgba(204,68,68,0.08);
+  border-color: var(--danger);
+}
+
+/* ── 检定横幅 ── */
+.roll-request-banner {
+  background: linear-gradient(135deg, #1a1040, #2a1a50);
+  border: 1px solid var(--accent);
+  color: var(--accent-light);
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.roll-request-tag {
+  background: linear-gradient(135deg, #1a1040, #2a1a50);
+  border: 1px solid var(--accent);
+  color: var(--accent-light);
+}
+
+/* ── 检定按钮 ── */
+.quick-check-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--info-light);
+}
+
+.quick-check-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-light);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.quick-check-btn.roll-highlight {
+  background: linear-gradient(135deg, #1a1040, #2a1a50) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-light) !important;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+/* ── 输入框 ── */
+.chat-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.chat-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.send-button {
+  background: var(--accent-dark);
+  color: #f0d78c;
+  border: 1px solid var(--accent);
+}
+
+.send-button:hover {
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+/* ── 折叠面板 ── */
+.fold-section { border-color: var(--border); }
+.fold-header { background: var(--bg-card); }
+.fold-header:hover { background: rgba(212,168,67,0.04); }
+.fold-badge { background: rgba(212,168,67,0.12); color: var(--accent); }
+
+/* ── 调查工作台 ── */
+.investigation-workspace {
+  background: linear-gradient(180deg, #0f1a2e 0%, #0a1222 100%);
+  border-left: 2px solid var(--border);
+}
+
+.investigation-header {
+  border-bottom: 1px solid var(--border);
+  background: rgba(212,168,67,0.03);
+}
+
+.investigation-header h2 {
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.investigation-tabs button {
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+}
+
+.investigation-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent-light);
+}
+
+.investigation-tabs button:hover {
+  color: var(--text-primary);
+}
+
+.reasoning-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.reasoning-card.reasoning-open {
+  border-color: var(--info);
+}
+
+.reasoning-card.reasoning-confirmed {
+  border-color: var(--success);
+}
+
+.reasoning-meter {
+  background: var(--bg-input);
+}
+
+.reasoning-meter span {
+  background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+}
+
+/* ── 滚动条 ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dark); }
+
+/* ── 动画 ── */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+  50% { box-shadow: 0 0 20px var(--accent-glow); }
+}
+
+/* ── 遮罩层 ── */
+.sidebar-overlay {
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(2px);
+}
+
+/* ── 角色信息 ── */
+.char-info-item {
+  background: rgba(212,168,67,0.05);
+  border: 1px solid rgba(212,168,67,0.12);
+}
+
+.stat-row {
+  color: var(--text-secondary);
+}
+
+.stat-attr, .stat-mod, .sidebar-points {
+  color: var(--accent-light);
+}
