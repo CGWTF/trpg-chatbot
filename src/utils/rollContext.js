@@ -308,6 +308,7 @@ function parseEmojiSections(text) {
     }
   }
   markers.sort((a, b) => a.start - b.start);
+  if (typeof window !== 'undefined') console.log('[parseEmojiSections] 找到标记数:', markers.length, '文本头:', text.slice(0, 80));
   if (!markers.length) return { items, clues, locations };
 
   const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|与线索|与信息|与场所)$/;
