@@ -211,22 +211,29 @@ export default function App() {
       pacing,
       setupComplete: true,
     }));
-    // 延迟让角色卡状态生效后，触发 AI 生成专属开场白
+    // 直接把角色卡信息写入开场指令（不依赖异步 reasoningContext）
+    const buildIntro = (c) => {
+      const p = ['[故事开场指令]'];
+      p.push('角色: ' + c.name);
+      if (c.identity) p.push('身份: ' + c.identity);
+      if (c.gender) p.push('性别: ' + (c.gender === 'male' ? '男' : c.gender === 'female' ? '女' : c.gender));
+      if (c.age) p.push('年龄: ' + c.age);
+      if (c.background) p.push('游戏背景: ' + c.background);
+      p.push('');
+      p.push('请为玩家撰写一段沉浸式的故事开场白：');
+      p.push('以第二人称'你'开场，将玩家直接代入角色；');
+      p.push('基于游戏背景描绘初始场景的细节（声音、气味、光线、氛围）；');
+      p.push('引入第一个情节钩子——悬念、奇怪现象或即将到来的事件；');
+      p.push('200~400字，不要请求检定，纯粹叙事；');
+      p.push('结尾留出行动空间让玩家做出第一个选择。');
+      return p.join('
+');
+    };
     setTimeout(() => {
       if (!apiKey) return;
-      // 引导 AI 基于角色卡生成专属开场白
-      const introPrompt = `[故事开场指令]
-你已收到角色卡和游戏背景。请为玩家撰写一段沉浸式的故事开场白。
-
-要求：
-- 以第二人称"你"开场，将玩家直接代入角色
-- 基于游戏背景描绘初始场景的细节（声音、气味、光线、氛围）
-- 引入第一个情节钩子——一个微小的悬念、一个奇怪的现象、或一个即将到来的事件
-- 200~400字，不要请求检定，纯粹叙事
-- 结尾留出行动空间让玩家做出第一个选择`;
       addMessage({ text: '开始冒险', type: 'user', time: getTime() });
-      callAI(introPrompt);
-    }, 500);
+      callAI(buildIntro(char));
+    }, 300);
   }, [setCharacter, renameStory, apiKey, addMessage, callAI]);
 
   // ── UI 开关 ──
