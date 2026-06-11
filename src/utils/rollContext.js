@@ -313,6 +313,13 @@ function parseEmojiSections(text) {
 
     if (!currentTarget) continue;
 
+    // 跳过疑似其他分区标题的行，并停止当前目标（避免后续内容误加入）
+    const bareLine = line.replace(/\*\*/g, '');
+    if (/^[⏳💡⚠️⚔️🗺️🏷️🎯]/u.test(bareLine) && /[：:]/.test(bareLine)) {
+      currentTarget = null;
+      continue;
+    }
+
     let cleaned = line
       .replace(/\*\*/g, '')
       .replace(/^[\s\d]*[\.\、\)\-\s•\*]*\s*/, '')
