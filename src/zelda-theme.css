@@ -3,6 +3,74 @@
    覆盖在 App.css 之后加载，仅改色不改布局
    ======================================== */
 
+/* ── 塞尔达深蓝波浪背景 ── */
+body {
+  background: #080d18;
+}
+
+.app {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(30,60,120,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(40,80,160,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(20,50,100,0.05) 0%, transparent 50%),
+    #080d18;
+}
+
+/* 波浪线条覆盖层 */
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.12;
+  background:
+    repeating-linear-gradient(0deg,
+      transparent,
+      transparent 80px,
+      rgba(80,140,220,0.15) 80px,
+      rgba(80,140,220,0.15) 81px),
+    repeating-linear-gradient(90deg,
+      transparent,
+      transparent 60px,
+      rgba(60,120,200,0.1) 60px,
+      rgba(60,120,200,0.1) 60.5px,
+      transparent 60.5px),
+    radial-gradient(circle at 15% 30%, rgba(100,160,240,0.06) 0%, transparent 40%),
+    radial-gradient(circle at 75% 70%, rgba(80,140,220,0.05) 0%, transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(60,120,200,0.04) 0%, transparent 50%);
+}
+
+/* 希卡族风格几何圆环 */
+.app::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  top: 15%; left: 5%;
+  width: 200px; height: 200px;
+  border: 1px solid rgba(80,140,220,0.08);
+  border-radius: 50%;
+  box-shadow: 0 0 80px rgba(60,120,200,0.04), inset 0 0 40px rgba(60,120,200,0.03);
+}
+
+/* 右上角小圆环 */
+.app-main::before {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  top: 10%; right: 8%;
+  width: 80px; height: 80px;
+  border: 1px solid rgba(80,140,220,0.06);
+  border-radius: 50%;
+}
+
+.app-header, .app-main, .app-footer, .sidebar-overlay, .investigation-workspace {
+  position: relative;
+  z-index: 1;
+}
+
 /* ── 全局色调 ── */
 :root {
   --bg-primary: #0a0e17;
@@ -104,7 +172,7 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
   background: rgba(212,168,67,0.1);
 }
 
-/* ── 侧边栏标签和输入 ── */
+/* ── 侧边栏输入框融入背景 ── */
 .sidebar-label {
   color: var(--accent-light);
   text-transform: none;
@@ -112,14 +180,20 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
 }
 
 .sidebar-name-input, .stat-input, .sidebar-points-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-primary);
+  transition: all 0.25s;
+}
+
+.sidebar-name-input:hover, .stat-input:hover, .sidebar-points-input:hover {
+  border-color: rgba(212,168,67,0.15);
 }
 
 .sidebar-name-input:focus, .stat-input:focus, .sidebar-points-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  box-shadow: 0 0 12px var(--accent-glow);
+  background: rgba(212,168,67,0.04);
 }
 
 /* ── HP/SP 条 ── */
