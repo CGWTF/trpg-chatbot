@@ -221,6 +221,59 @@ export function parseAIForStateChanges(text) {
   return Object.keys(changes).length > 0 ? changes : null;
 }
 
+// ── 启发式回复扫描 ──
+
+/**
+ * 从 AI 回复中自动提取道具和线索（当 AI 忘记用 STATE 标签时）
+ * 保守策略：只匹配明确的获得/发现句式，避免误报
+ */
+export function scanAIForItems(text) {
+  const items = [];
+  const clues = [];
+
+  // 道具匹配模式
+  const itemPatterns = [
+    /(?:获得|得到|捡起|拾起|拿到|入手|收集)[了到]?\s*[「『"']?([^，。！？\n]{2,12})[」』"']?/g,
+    /(?:掉落|爆出|赠送|交给|递给)[了]?\s*[「『"']?([^，。！？\n]{2,12})[」』"']?/g,
+    /[「『]([^」』]{2,10})[」』]\s*(?:入手|获得|得到)/g,
+    // 数量+物品：一把X、一枚X、一张X、一块X
+    /(?:一把|一枚|一张|一块|一件|一本|一颗|一瓶)[「『]?([^，。！？\n]{2,10})[」』]?/g,
+  ];
+
+  // 线索匹配模式
+  const cluePatterns = [
+    /(?:发现|察觉|注意到|意识到)[了]?\s*[「『"']?([^，。！？\n]{3,20})[」』"']?/g,
+    /(?:线索|痕迹|记号|符号|暗号|标记)[：:是]+\s*[「『]?([^，。！？\n]{3,20})[」』]?/g,
+    /记载[了着]?\s*[：:]?\s*[「『]?([^，。！？\n]{3,20})[」』]?/g,
+  ];
+
+  // 过滤词：明显不是有效道具/线索的通用词
+  const noiseWords = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没|什么也没|没什么)$/;
+
+  for (const pattern of itemPatterns) {
+    for (const m of text.matchAll(pattern)) {
+      const candidate = m[1].trim();
+      if (candidate.length >= 2 && candidate.length <= 15 && !noiseWords.test(candidate)) {
+        items.push(candidate);
+      }
+    }
+  }
+
+  for (const pattern of cluePatterns) {
+    for (const m of text.matchAll(pattern)) {
+      const candidate = m[1].trim();
+      if (candidate.length >= 3 && candidate.length <= 25 && !noiseWords.test(candidate)) {
+        clues.push(candidate);
+      }
+    }
+  }
+
+  return {
+    items: [...new Set(items)],
+    clues: [...new Set(clues)],
+  };
+}
+
 // ── 状态变更应用 ──
 
 const DEFAULT_GAME_STATE = {

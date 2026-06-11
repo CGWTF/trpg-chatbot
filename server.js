@@ -246,6 +246,12 @@ function injectCheckReminder(messages) {
 请在回复末尾包含恰好一行检定请求，格式：
 【检定请求：STAT，DCn】请投一个d20进行技能名检定
 STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
+
+📦 如果玩家获得道具或发现线索，必须在回复末尾用 STATE 标签记录：
+[STATE:add_inventory=物品名]
+[STATE:add_clue=线索简述]
+每个道具/线索单独一行。不要忘记！
+
 如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]` +
       pacingHint,
   };
