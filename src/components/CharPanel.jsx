@@ -108,6 +108,16 @@ export default function CharPanel({ stats, onChange, pointLimit, onPointLimitCha
                   <span className="game-state-text">{gameState.inventory.join(' · ')}</span>
                 </div>
               )}
+              {gameState.clues && gameState.clues.length > 0 && (
+                <div className="game-state-section clues-section">
+                  <div className="game-state-label">🔍 线索日志:</div>
+                  <ul className="clues-list">
+                    {gameState.clues.map((clue, i) => (
+                      <li key={i} className="clue-item">{clue}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

@@ -1199,6 +1199,43 @@
   font-size: 13px;
 }
 
+.clues-section {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 14px;
+  margin-top: 4px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #4a1a6b;
+  border-radius: var(--radius-md);
+}
+
+.clues-section .game-state-label {
+  color: #c4b5fd;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.clues-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clue-item {
+  font-size: 12px;
+  color: #a5b4fc;
+  padding: 3px 8px;
+  background: rgba(109, 40, 217, 0.15);
+  border-left: 2px solid #6d28d9;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.5;
+}
+
 .game-state-bar-bg {
   flex: 1;
   height: 10px;

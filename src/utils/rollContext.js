@@ -228,7 +228,8 @@ const DEFAULT_GAME_STATE = {
   maxHp: 20,
   sp: 10,
   maxSp: 10,
-  inventory: [],
+  inventory: [],   // 道具背包
+  clues: [],       // 线索日志
   location: '',
 };
 
@@ -248,6 +249,7 @@ export function applyStateChanges(prev, changes) {
   const next = {
     ...prev,
     inventory: [...(prev.inventory || [])],
+    clues: [...(prev.clues || [])],
   };
 
   // ⚠️ 先处理 max 值变更，再处理 hp/sp，确保 clamp 使用最新的上限
@@ -309,6 +311,11 @@ export function applyStateChanges(prev, changes) {
   if (changes.remove_inventory) {
     const idx = next.inventory.indexOf(changes.remove_inventory);
     if (idx >= 0) next.inventory.splice(idx, 1);
+  }
+
+  // 线索添加
+  if (changes.add_clue) {
+    next.clues.push(changes.add_clue);
   }
 
   // 位置
