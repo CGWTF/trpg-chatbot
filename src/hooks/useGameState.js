@@ -63,9 +63,9 @@ export default function useGameState(gameState, setGameState) {
       if (hasLocalChanges || isRefresh) {
         setGameState((prev) => {
           let next = { ...prev };
-          // 刷新模式：清空旧的道具/线索/场所/假设，用 AI 整理的替换
+          // 刷新模式：清空旧数据，用 AI 整理的替换
           if (isRefresh) {
-            next = { ...next, inventory: [], clues: [], locations: [], hypotheses: [] };
+            next = { ...next, inventory: [], clues: [], locations: [], hypotheses: [], knowledgeGraph: { entities: [], relations: [], analysis: {}, extractor: '', embeddingRecommended: false } };
           }
           if (changes) {
             next = applyStateChanges(next, changes);
@@ -97,6 +97,7 @@ export default function useGameState(gameState, setGameState) {
 
       // 使用包含本轮新增项的上下文调用 NLP（避免闭包里的旧 knowledgeGraph）
       await analyzeKnowledge(aiFullText, {
+        replaceGraph: isRefresh,
         baseGraph: {
           ...(gameState.knowledgeGraph || { entities: [], relations: [] }),
           _reasoningHints: {
