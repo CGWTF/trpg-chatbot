@@ -298,19 +298,18 @@ function injectCheckReminder(messages, pacing) {
       `\n[📖 节奏提示：对话已超过 ${tiers.early} 轮。减少新支线和新地点，聚焦当前主线。]`;
   }
 
+  // 检测是否是整理/刷新请求
+  const isRefresh = /整理|梳理|汇总|归纳|刷新|同步/.test(lastUserContent);
+
   // 在用户消息末尾直接追加指令（AI 最难忽略）
-  messagesCopy[lastUserIdx] = {
-    ...messagesCopy[lastUserIdx],
-    content:
-      lastUserContent +
-      `
+  const baseInstruction = `
+[⚠️ 系统指令：上述玩家描述了一个可能有风险的动作。你绝对不能直接描述动作结果！`;
 
-[⚠️ 系统指令：上述玩家描述了一个可能有风险的动作。你绝对不能直接描述动作结果！
-请在回复末尾包含恰好一行检定请求，格式：
+  const rollInstruction = `请在回复末尾包含恰好一行检定请求，格式：
 【检定请求：STAT，DCn】请投一个d20进行技能名检定
-STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
+STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20`;
 
-📦 如果玩家获得道具/发现线索/得知新场所，必须在回复末尾用粗体声明：
+  const markInstruction = `📦 如果玩家获得道具/发现线索/得知新场所，必须在回复末尾用粗体声明：
 **获得道具：物品名**
 **发现线索：线索简述**
 **得知场所：场所名**
@@ -318,10 +317,26 @@ STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20
 每项单独一行，不要忘记！
 
 若至少两条明确线索支持一个推测，在所有其他标记之后附加 <TRPG_REASONING> JSON 推理数据块。
-若出现有明确姓名、代号或唯一专名的重要人物、地点、组织或明确关系，再附加 <TRPG_KNOWLEDGE> JSON 知识块；不要把无名 NPC 泛称作为人物实体。
+若出现有明确姓名、代号或唯一专名的重要人物、地点、组织或明确关系，再附加 <TRPG_KNOWLEDGE> JSON 知识块；不要把无名 NPC 泛称作为人物实体。`;
 
-如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]` +
-      pacingHint,
+  const refreshInstruction = `🔄 刷新模式：玩家要求整理当前所有信息。请先输出一段简要的小结文字，然后在回复末尾列出当前全部已知的：
+- 所有道具（**获得道具：名称**，每行一个）
+- 所有线索（**发现线索：核心情报**，每行一个）
+- 所有已知场所（**得知场所：名称**，每行一个）
+- 当前位置（**当前位置：地名**）
+- 若推理假设发生变化，附加 <TRPG_REASONING>；若出现新实体/关系，附加 <TRPG_KNOWLEDGE>
+按照线索严格定义输出，不要在刷新模式下列出无关紧要的细节。`;
+
+  const closingInstruction = `如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]`;
+
+  const assembled = isRefresh
+    ? baseInstruction + '\n' + refreshInstruction + '\n' + closingInstruction
+    : baseInstruction + '\n' + rollInstruction + '\n\n' + markInstruction + '\n' + closingInstruction;
+
+  messagesCopy[lastUserIdx] = {
+    ...messagesCopy[lastUserIdx],
+    content: lastUserContent + assembled + pacingHint,
+    _isRefresh: isRefresh,
   };
 
   return messagesCopy;

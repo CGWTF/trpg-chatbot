@@ -39,6 +39,11 @@ export default function useGameState(gameState, setGameState) {
     async (aiFullText) => {
       const changes = parseAIForStateChanges(aiFullText);
       const scanned = scanAIForItems(aiFullText);
+
+      // 检测是否全量刷新：5+ 粗体标记 = AI 在整理全部信息 → 替换旧数据
+      const boldMarkerCount = (aiFullText.match(/\*\*(?:获得道具|失去道具|发现线索|得知场所|当前位置)[：:]/g) || []).length;
+      const isRefresh = boldMarkerCount >= 5;
+
       const hypotheses = groundHypotheses(parseAIForReasoningUpdates(aiFullText), {
         clues: [...(gameState.clues || []), ...scanned.clues],
         inventory: [...(gameState.inventory || []), ...scanned.items],
@@ -55,9 +60,13 @@ export default function useGameState(gameState, setGameState) {
       const newItems = [...(gameState.inventory || []), ...scanned.items];
       const newLocations = [...(gameState.locations || []), ...scanned.locations];
 
-      if (hasLocalChanges) {
+      if (hasLocalChanges || isRefresh) {
         setGameState((prev) => {
           let next = { ...prev };
+          // 刷新模式：清空旧的道具/线索/场所/假设，用 AI 整理的替换
+          if (isRefresh) {
+            next = { ...next, inventory: [], clues: [], locations: [], hypotheses: [] };
+          }
           if (changes) {
             next = applyStateChanges(next, changes);
           }
