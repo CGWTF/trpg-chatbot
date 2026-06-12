@@ -343,6 +343,28 @@ export function mergeHypotheses(current = [], updates = []) {
   return merged;
 }
 
+// ── TRPG_STATE 结构化状态块解析 ──
+
+/**
+ * 解析 AI 回复中的 <TRPG_STATE> JSON 块
+ * 格式: <TRPG_STATE>{"inventory":[...],"clues":[...],"locations":[...],"currentLocation":"..."}</TRPG_STATE>
+ */
+export function parseTRPGState(text) {
+  const match = text.match(/<TRPG_STATE>\s*([\s\S]*?)\s*<\/TRPG_STATE>/i);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    return {
+      inventory: Array.isArray(data.inventory) ? data.inventory.map(s => String(s).trim().slice(0, 40)).filter(Boolean) : [],
+      clues: Array.isArray(data.clues) ? data.clues.map(s => String(s).trim().slice(0, 50)).filter(Boolean) : [],
+      locations: Array.isArray(data.locations) ? data.locations.map(s => String(s).trim().slice(0, 40)).filter(Boolean) : [],
+      currentLocation: typeof data.currentLocation === 'string' ? data.currentLocation.trim().slice(0, 40) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── 启发式回复扫描 ──
 
 /**
