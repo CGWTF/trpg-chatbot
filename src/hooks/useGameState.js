@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   parseAIForStateChanges,
   applyStateChanges,
@@ -62,12 +62,15 @@ function mergeEventGraph(current = {}, events, replace = false) {
  * 独立于 AI 对话层，通过 localStorage 持久化
  */
 export default function useGameState(gameState, setGameState) {
+  const analysisVersionRef = useRef(0);
+
   const analyzeKnowledge = useCallback(
-    async (text, { replaceGraph = false, baseGraph } = {}) => {
+    async (text, { replaceGraph = false, baseGraph, requestVersion } = {}) => {
       if (!text?.trim()) return false;
+      const version = requestVersion ?? ++analysisVersionRef.current;
       const graph = baseGraph ?? (replaceGraph ? { entities: [], relations: [] } : gameState.knowledgeGraph);
       const knowledge = await extractKnowledge(text, graph);
-      if (!knowledge) return false;
+      if (!knowledge || version !== analysisVersionRef.current) return false;
       setGameState((prev) => ({
         ...prev,
         knowledgeGraph: {
@@ -85,6 +88,7 @@ export default function useGameState(gameState, setGameState) {
   // 从 AI 回复中提取 STATE 标签 + 启发式扫描，合并结果
   const applyAIStateUpdate = useCallback(
     async (aiFullText, { forceRefresh = false, priorityOnly = false } = {}) => {
+      const requestVersion = ++analysisVersionRef.current;
       const changes = parseAIForStateChanges(aiFullText);
       const events = parseTRPGEvents(aiFullText);
       const scannedPriorityRecords = scanPriorityRecords(aiFullText);
@@ -142,8 +146,7 @@ export default function useGameState(gameState, setGameState) {
       scanned.items = [...new Set([...scanned.items, ...priorityRecords.items])];
 
       // 统一事件块明确声明 snapshot；旧格式继续使用原先的刷新检测
-      const totalEntries = (scanned.items?.length || 0) + (scanned.clues?.length || 0) + (scanned.locations?.length || 0);
-      const isRefresh = forceRefresh || events?.mode === 'snapshot' || (!events && totalEntries >= 5);
+      const isRefresh = forceRefresh || events?.mode === 'snapshot';
       const eventEntities = priorityOnly
         ? (events?.entities || []).filter((entity) => entity.type === 'person')
         : (events?.entities || []);
@@ -262,6 +265,7 @@ export default function useGameState(gameState, setGameState) {
         ? false
         : await analyzeKnowledge(aiFullText, {
             replaceGraph: isRefresh,
+            requestVersion,
             baseGraph: {
               ...eventGraph,
               _reasoningHints: {

@@ -15,6 +15,7 @@ import {
   parseAIForReasoningUpdates,
   groundHypotheses,
   mergeHypotheses,
+  normalizeGameState,
 } from '../utils/rollContext';
 
 describe('scanAIForItems location detection', () => {
@@ -611,5 +612,23 @@ describe('getStatName', () => {
   it('returns empty string for falsy input', () => {
     expect(getStatName('')).toBe('');
     expect(getStatName(null)).toBe('');
+  });
+});
+
+describe('normalizeGameState', () => {
+  it('deeply restores missing arrays and graph fields in legacy saves', () => {
+    const result = normalizeGameState({
+      hp: 7,
+      inventory: null,
+      knowledgeGraph: { entities: [{ id: 'p1', type: 'person', name: 'Aria' }] },
+      evidenceBoard: { nodes: null },
+    });
+
+    expect(result.hp).toBe(7);
+    expect(result.inventory).toEqual([]);
+    expect(result.knowledgeGraph.relations).toEqual([]);
+    expect(result.knowledgeGraph.analysis.centralEntities).toEqual([]);
+    expect(result.evidenceBoard.nodes).toEqual([]);
+    expect(result.evidenceBoard.edges).toEqual([]);
   });
 });

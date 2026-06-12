@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trpg-chatbot.local/schemas/trpg-events.schema.json",
+  "title": "TRPG_EVENTS",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": ["delta", "snapshot"],
+      "default": "delta"
+    },
+    "quests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/questEvent" }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/itemEvent" }
+    },
+    "entities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entity" }
+    },
+    "locations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/locationEvent" }
+    },
+    "threats": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/threatEvent" }
+    },
+    "clues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/clueEvent" }
+    },
+    "currentLocation": { "type": "string" },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relation" }
+    }
+  },
+  "$defs": {
+    "questEvent": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "action": { "enum": ["active", "completed"] }
+      }
+    },
+    "threatEvent": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "action": { "enum": ["active", "resolved"] }
+      }
+    },
+    "itemEvent": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "action": { "enum": ["acquired", "lost"] }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "enum": ["person", "place", "organization"] },
+        "description": { "type": "string" }
+      }
+    },
+    "locationEvent": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "action": { "enum": ["discovered", "entered"] }
+      }
+    },
+    "clueEvent": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "action": { "enum": ["discovered", "retracted"] }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "required": ["source", "target", "type"],
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "type": { "type": "string" },
+        "evidence": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      }
+    }
+  }
+}

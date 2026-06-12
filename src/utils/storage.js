@@ -27,7 +27,12 @@ export function getImageConfig() {
 }
 
 export function saveImageConfig(config) {
-  localStorage.setItem(IMAGE_CONFIG_KEY, JSON.stringify(config));
+  try {
+    localStorage.setItem(IMAGE_CONFIG_KEY, JSON.stringify(config));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ========== 故事管理 ==========
@@ -38,7 +43,8 @@ export function saveImageConfig(config) {
 export function getAllStories() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -48,22 +54,70 @@ export function getAllStories() {
  * 保存所有存档
  */
 export function saveAllStories(stories) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories.map(serializeStory)));
+  try {
+    const values = Array.isArray(stories) ? stories : [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(values.map(serializeStory)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function exportStoryBackup(stories) {
+  const values = Array.isArray(stories) ? stories : [];
+  return JSON.stringify({
+    format: 'trpg-chatbot-backup',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    stories: values.map(serializeStory),
+  }, null, 2);
+}
+
+export function parseStoryBackup(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(raw || ''));
+  } catch {
+    throw new Error('备份文件不是有效的 JSON');
+  }
+
+  const stories = Array.isArray(parsed) ? parsed : parsed?.stories;
+  if (!Array.isArray(stories) || !stories.length) {
+    throw new Error('备份文件中没有冒险记录');
+  }
+  if (stories.some((story) => !story || typeof story !== 'object'
+    || typeof story.id !== 'string' || !story.id.trim()
+    || !Array.isArray(story.messages))) {
+    throw new Error('备份文件中的冒险记录结构不完整');
+  }
+  if (new Set(stories.map((story) => story.id)).size !== stories.length) {
+    throw new Error('备份文件包含重复的冒险记录 ID');
+  }
+  return stories;
 }
 
 /**
  * 获取当前故事 ID
  */
 export function getCurrentStoryId() {
-  return localStorage.getItem(CURRENT_KEY);
+  try {
+    return localStorage.getItem(CURRENT_KEY);
+  } catch {
+    return null;
+  }
 }
 
 /**
  * 设置当前故事 ID
  */
 export function setCurrentStoryId(id) {
-  if (id) localStorage.setItem(CURRENT_KEY, id);
-  else localStorage.removeItem(CURRENT_KEY);
+  try {
+    if (id) localStorage.setItem(CURRENT_KEY, id);
+    else localStorage.removeItem(CURRENT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

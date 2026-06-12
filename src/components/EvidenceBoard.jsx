@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
   addEdge, MarkerType, Panel,
@@ -18,7 +18,7 @@ function makeNode(id, type, name, x, y) {
   return {
     id, type: 'default',
     position: { x, y },
-    data: { label: `${t.icon} ${name}`, type },
+    data: { label: `${t.icon} ${name}`, name, type },
     style: {
       background: t.bg, border: `2px solid ${t.color}`, color: t.color,
       borderRadius: 8, padding: '6px 12px', fontSize: 12, maxWidth: 200,
@@ -30,8 +30,6 @@ function makeNode(id, type, name, x, y) {
 function buildGraph(gameState) {
   const nodes = [];
   const edges = [];
-  let nid = 0;
-
   // 中心："我"
   nodes.push(makeNode('center', 'person', '我', 400, 300));
 
@@ -73,26 +71,51 @@ function buildGraph(gameState) {
     nodes.push(makeNode(`item${i}`, 'item', item, x, y));
   });
 
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  for (const relation of graph?.relations || []) {
+    const source = `e${relation.source}`;
+    const target = `e${relation.target}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({
+      id: `relation-${relation.id || `${relation.source}-${relation.type}-${relation.target}`}`,
+      source,
+      target,
+      label: relation.type,
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#6b7280' },
+      style: { stroke: '#6b7280', strokeWidth: 1.5 },
+    });
+  }
+
   return { nodes, edges };
 }
 
-export default function EvidenceBoard({ gameState }) {
+export default function EvidenceBoard({ gameState, setGameState }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loaded, setLoaded] = useState(false);
   const [synthesized, setSynthesized] = useState(false);
 
   const populate = useCallback(() => {
-    const { nodes: ns, edges: es } = buildGraph(gameState);
+    const saved = gameState?.evidenceBoard;
+    const hasSavedBoard = saved?.nodes?.length || saved?.edges?.length;
+    const { nodes: ns, edges: es } = hasSavedBoard ? saved : buildGraph(gameState);
     setNodes(ns);
     setEdges(es);
     setLoaded(true);
     setSynthesized(false);
   }, [gameState, setNodes, setEdges]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    setGameState?.((prev) => ({
+      ...prev,
+      evidenceBoard: { nodes, edges },
+    }));
+  }, [edges, loaded, nodes, setGameState]);
+
   // 合成图谱：自动连接线索到相关实体
   const synthesize = useCallback(() => {
-    const { nodes: ns, edges: es } = buildGraph(gameState);
+    const { nodes: ns, edges: relationEdges } = buildGraph(gameState);
     setNodes(ns);
 
     // 自动连线：线索文字提到实体名 → 创建边
@@ -103,7 +126,7 @@ export default function EvidenceBoard({ gameState }) {
     clueNodes.forEach(clue => {
       const clueText = clue.data.label || '';
       entityNodes.forEach(ent => {
-        const entName = (ent.data.label || '').replace(/^./, ''); // strip emoji
+        const entName = ent.data.name || '';
         if (entName.length >= 2 && clueText.includes(entName)) {
           autoEdges.push({
             id: `auto-${clue.id}-${ent.id}`,
@@ -116,7 +139,7 @@ export default function EvidenceBoard({ gameState }) {
       });
     });
 
-    setEdges(autoEdges);
+    setEdges([...relationEdges, ...autoEdges]);
     setSynthesized(true);
   }, [gameState, setNodes, setEdges]);
 
@@ -125,7 +148,13 @@ export default function EvidenceBoard({ gameState }) {
     [setEdges]
   );
 
-  const clearBoard = () => { setNodes([]); setEdges([]); setLoaded(false); setSynthesized(false); };
+  const clearBoard = () => {
+    setNodes([]);
+    setEdges([]);
+    setLoaded(false);
+    setSynthesized(false);
+    setGameState?.((prev) => ({ ...prev, evidenceBoard: { nodes: [], edges: [] } }));
+  };
 
   if (!loaded) {
     return (

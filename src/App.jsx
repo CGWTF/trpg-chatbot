@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import GameSidebar from './components/GameSidebar';
@@ -12,6 +12,7 @@ import useAIChat from './hooks/useAIChat';
 import useRollResolution from './hooks/useRollResolution';
 import useImageSettings from './hooks/useImageSettings';
 import { findLatestSummaryReply } from './utils/rollContext';
+import { exportStoryBackup } from './utils/storage';
 import createDicePlugin from './plugins/dicePlugin';
 import createRulePlugin from './plugins/rulePlugin';
 import createImagePlugin from './plugins/imagePlugin';
@@ -45,6 +46,7 @@ export default function App() {
   const {
     stories, currentId, messages, setMessages, addMessage, newStory, switchStory, removeStory, renameStory,
     character, setCharacter, gameState: storyGameState, setGameState: setStoryGameState,
+    saveStatus, importStoryBackup,
   } =
     useStoryManager(WELCOME_MSG);
 
@@ -262,11 +264,36 @@ export default function App() {
   const [showInvestigation, setShowInvestigation] = useState(false);
   const [showStories, setShowStories] = useState(false);
   const [investigationTab, setInvestigationTab] = useState('reasoning');
+  const backupInputRef = useRef(null);
+  const [backupMessage, setBackupMessage] = useState('');
 
   const openInvestigation = useCallback((tab = 'reasoning') => {
     setInvestigationTab(tab);
     setShowInvestigation(true);
   }, []);
+
+  const handleExportBackup = useCallback(() => {
+    const blob = new Blob([exportStoryBackup(stories)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `trpg-chatbot-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupMessage(`已导出 ${stories.length} 个冒险记录`);
+  }, [stories]);
+
+  const handleImportBackup = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !confirm('导入将替换当前全部冒险记录，是否继续？')) return;
+    try {
+      const count = importStoryBackup(await file.text());
+      setBackupMessage(`已导入 ${count} 个冒险记录`);
+    } catch (error) {
+      setBackupMessage(`导入失败：${error.message}`);
+    }
+  }, [importStoryBackup]);
 
   // ── render ──
   return (
@@ -303,6 +330,13 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {saveStatus === 'error' && (
+        <div className="save-error-banner" role="alert">
+          存档写入失败。请先导出备份，并检查浏览器存储空间。
+          <button onClick={() => setShowStories(true)}>打开冒险记录</button>
+        </div>
+      )}
 
       {/* 新故事引导弹窗 */}
       <StorySetupWizard
@@ -499,6 +533,20 @@ export default function App() {
             <button className="new-story-btn" onClick={() => { onNewWithHook(); setShowStories(false); }}>
               ✨ 开始新冒险
             </button>
+            <div className="story-backup-actions">
+              <button onClick={handleExportBackup}>导出全部存档</button>
+              <button onClick={() => backupInputRef.current?.click()}>导入存档</button>
+              <input
+                ref={backupInputRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={handleImportBackup}
+                hidden
+              />
+            </div>
+            <p className={`story-backup-status ${saveStatus === 'error' ? 'error' : ''}`}>
+              {backupMessage || (saveStatus === 'saved' ? '存档已写入浏览器' : '存档写入失败，请立即导出备份')}
+            </p>
             <div className="story-list">
               {stories.length === 0 && (
                 <div className="story-empty">还没有冒险记录</div>

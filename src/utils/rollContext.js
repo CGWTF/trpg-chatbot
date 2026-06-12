@@ -797,10 +797,51 @@ const DEFAULT_GAME_STATE = {
     extractor: '',
     embeddingRecommended: false,
   },
+  evidenceBoard: {
+    nodes: [],
+    edges: [],
+  },
 };
 
 export function getDefaultGameState() {
   return JSON.parse(JSON.stringify(DEFAULT_GAME_STATE));
+}
+
+export function normalizeGameState(value) {
+  const defaults = getDefaultGameState();
+  const state = value && typeof value === 'object' ? value : {};
+  const graph = state.knowledgeGraph && typeof state.knowledgeGraph === 'object'
+    ? state.knowledgeGraph
+    : {};
+  const analysis = graph.analysis && typeof graph.analysis === 'object' ? graph.analysis : {};
+  const board = state.evidenceBoard && typeof state.evidenceBoard === 'object'
+    ? state.evidenceBoard
+    : {};
+  const array = (candidate) => Array.isArray(candidate) ? candidate : [];
+
+  return {
+    ...defaults,
+    ...state,
+    inventory: array(state.inventory),
+    quests: array(state.quests),
+    threats: array(state.threats),
+    clues: array(state.clues),
+    locations: array(state.locations),
+    hypotheses: array(state.hypotheses),
+    knowledgeGraph: {
+      ...defaults.knowledgeGraph,
+      ...graph,
+      entities: array(graph.entities),
+      relations: array(graph.relations),
+      analysis: { ...defaults.knowledgeGraph.analysis, ...analysis },
+    },
+    evidenceBoard: {
+      ...defaults.evidenceBoard,
+      ...board,
+      nodes: array(board.nodes),
+      edges: array(board.edges),
+    },
+  };
 }
 
 /**

@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createStory, getAllStories, saveAllStories } from '../utils/storage';
+import {
+  createStory,
+  exportStoryBackup,
+  getAllStories,
+  getCurrentStoryId,
+  parseStoryBackup,
+  saveAllStories,
+} from '../utils/storage';
 
 function createLocalStorage() {
   const data = new Map();
@@ -38,5 +45,43 @@ describe('story storage boundary', () => {
     }]);
 
     expect(getAllStories()[0].messages[0].image).toBeNull();
+  });
+
+  it('does not crash when localStorage quota is exceeded', () => {
+    localStorage.setItem.mockImplementation(() => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    });
+
+    expect(saveAllStories([])).toBe(false);
+  });
+
+  it('treats non-array persisted JSON as an empty story list', () => {
+    localStorage.setItem('trpg_stories', JSON.stringify({ invalid: true }));
+    expect(getAllStories()).toEqual([]);
+  });
+
+  it('exports and parses a versioned backup', () => {
+    const raw = exportStoryBackup([{ id: 'story-1', messages: [] }]);
+    expect(parseStoryBackup(raw)).toEqual([{ id: 'story-1', messages: [] }]);
+  });
+
+  it('rejects an incomplete backup before it can replace stories', () => {
+    expect(() => parseStoryBackup('{"stories":[{"id":"story-1"}]}'))
+      .toThrow('结构不完整');
+  });
+
+  it('rejects duplicate story ids', () => {
+    const raw = JSON.stringify({ stories: [
+      { id: 'story-1', messages: [] },
+      { id: 'story-1', messages: [] },
+    ] });
+    expect(() => parseStoryBackup(raw)).toThrow('重复');
+  });
+
+  it('handles denied current-story storage reads', () => {
+    localStorage.getItem.mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    expect(getCurrentStoryId()).toBeNull();
   });
 });

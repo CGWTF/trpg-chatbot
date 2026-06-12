@@ -6,8 +6,9 @@ import {
   saveAllStories,
   createStory,
   renameStory as renameStoryInStorage,
+  parseStoryBackup,
 } from '../utils/storage';
-import { getDefaultGameState } from '../utils/rollContext';
+import { getDefaultGameState, normalizeGameState } from '../utils/rollContext';
 
 const DEFAULT_CHARACTER = {
   name: '冒险者',
@@ -31,7 +32,7 @@ function normalizeStory(story, legacyDefaults) {
       ...(story.character || legacyDefaults.character),
       stats: { ...DEFAULT_CHARACTER.stats, ...(story.character?.stats || legacyDefaults.character.stats) },
     },
-    gameState: { ...getDefaultGameState(), ...(story.gameState || legacyDefaults.gameState) },
+    gameState: normalizeGameState(story.gameState || legacyDefaults.gameState),
   };
 }
 
@@ -76,11 +77,13 @@ export default function useStoryManager(welcomeMsg) {
   });
   const [stories, setStories] = useState(initial.stories);
   const [currentId, setCurrentId] = useState(initial.currentId);
+  const [saveStatus, setSaveStatus] = useState('saved');
 
   // ── 写穿：stories 变更后同步到 localStorage ──
   useEffect(() => {
-    saveAllStories(stories);
-    setCurrentStoryId(currentId);
+    const saved = saveAllStories(stories) && setCurrentStoryId(currentId);
+    const timer = setTimeout(() => setSaveStatus(saved ? 'saved' : 'error'), 0);
+    return () => clearTimeout(timer);
   }, [stories, currentId]);
 
   // ── 当前故事的消息 ──
@@ -182,6 +185,16 @@ export default function useStoryManager(welcomeMsg) {
       return { ...s, title: String(title).trim().slice(0, 30) || '未命名冒险', updatedAt: new Date().toISOString() };
     }));
   }, [currentId]);
+
+  const importStoryBackup = useCallback((raw) => {
+    const legacyDefaults = readLegacyDefaults();
+    const imported = parseStoryBackup(raw).map((story) => normalizeStory(story, legacyDefaults));
+    const nextId = imported[0].id;
+    setStories(imported);
+    setCurrentId(nextId);
+    return imported.length;
+  }, []);
+
   return {
     stories,
     currentId,
@@ -196,6 +209,8 @@ export default function useStoryManager(welcomeMsg) {
     gameState,
     setCharacter,
     setGameState,
+    saveStatus,
+    importStoryBackup,
   };
 }
 

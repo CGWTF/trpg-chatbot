@@ -47,10 +47,9 @@ class KnowledgeExtractor:
                 pass
 
     def extract(self, text: str) -> dict:
-        structured = self._extract_structured(text)
+        structured, has_events = self._extract_structured(text)
         entities = structured["entities"]
         relations = structured["relations"]
-        has_events = bool(re.search(r"<TRPG_EVENTS>\s*[\s\S]*?</TRPG_EVENTS>", text, re.I))
 
         if self.ner and not has_events:
             entities.extend(self._extract_with_model(text))
@@ -71,18 +70,18 @@ class KnowledgeExtractor:
             "extractor": "events" if has_events else ("transformers" if self.ner else "rules+structured"),
         }
 
-    def _extract_structured(self, text: str) -> dict:
+    def _extract_structured(self, text: str) -> tuple[dict, bool]:
         match = re.search(r"<TRPG_EVENTS>\s*([\s\S]*?)\s*</TRPG_EVENTS>", text, re.I)
         if match:
             structured = self._parse_structured_json(match.group(1))
             if structured is not None:
-                return structured
+                return structured, True
 
         match = re.search(r"<TRPG_KNOWLEDGE>\s*([\s\S]*?)\s*</TRPG_KNOWLEDGE>", text, re.I)
         if not match:
-            return {"entities": [], "relations": []}
+            return {"entities": [], "relations": []}, False
         structured = self._parse_structured_json(match.group(1))
-        return structured or {"entities": [], "relations": []}
+        return structured or {"entities": [], "relations": []}, False
 
     def _parse_structured_json(self, raw: str) -> dict | None:
         try:

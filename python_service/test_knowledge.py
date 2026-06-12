@@ -71,5 +71,16 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual(graph["entities"][0]["description"], "庄园管家")
 
 
+    def test_malformed_events_do_not_disable_structured_fallback(self):
+        extractor = KnowledgeExtractor()
+        result = extractor.extract(
+            '<TRPG_EVENTS>{bad json}</TRPG_EVENTS>'
+            '<TRPG_KNOWLEDGE>{"entities":[{"name":"Aria","type":"person"}]}</TRPG_KNOWLEDGE>'
+        )
+        names = {entity["name"] for entity in result["entities"]}
+        self.assertIn("Aria", names)
+        self.assertEqual(result["extractor"], "rules+structured")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,7 +14,12 @@ export default function InvestigationWorkspace({
   if (!isOpen) return null;
 
   const hypotheses = gameState?.hypotheses || [];
-  const graph = gameState?.knowledgeGraph || { entities: [], relations: [], analysis: {} };
+  const graph = {
+    ...(gameState?.knowledgeGraph || {}),
+    entities: gameState?.knowledgeGraph?.entities || [],
+    relations: gameState?.knowledgeGraph?.relations || [],
+    analysis: gameState?.knowledgeGraph?.analysis || {},
+  };
   const people = graph.entities.filter((entity) => entity.type === 'person');
 
   return (
@@ -55,7 +60,7 @@ export default function InvestigationWorkspace({
             onClear={() => setGameState((prev) => ({ ...prev, hypotheses: [] }))}
           />
         ) : activeTab === 'board' ? (
-          <EvidenceBoard gameState={gameState} />
+          <EvidenceBoard gameState={gameState} setGameState={setGameState} />
         ) : (
           <RelationsView
             graph={graph}
@@ -112,7 +117,7 @@ export default function InvestigationWorkspace({
         </FoldBox>
         <FoldBox title="重要情报" count={gameState?.clues?.length || 0}
           onClear={() => setGameState((p) => ({ ...p, clues: [] }))}
-          summary={gameState?.knowledgeGraph?.entities?.length ? `已关联 ${gameState.knowledgeGraph.entities.length} 个实体 · ${gameState.knowledgeGraph.relations.length} 条关系` : null}>
+          summary={graph.entities.length ? `已关联 ${graph.entities.length} 个实体 · ${graph.relations.length} 条关系` : null}>
           {(gameState?.clues || []).map((clue, i) => <li key={i} className="sidebar-list-item clue-item-sidebar">{clue}</li>)}
         </FoldBox>
       </aside>
