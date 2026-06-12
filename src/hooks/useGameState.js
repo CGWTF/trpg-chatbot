@@ -43,6 +43,8 @@ export default function useGameState(gameState, setGameState) {
       // 检测是否全量刷新：5+ 粗体标记 = AI 在整理全部信息 → 替换旧数据
       const boldMarkerCount = (aiFullText.match(/\*\*(?:获得道具|失去道具|发现线索|得知场所|当前位置)[：:]/g) || []).length;
       const isRefresh = boldMarkerCount >= 5;
+      console.log('[useGameState] applyAIStateUpdate called. textLen:', aiFullText?.length, 'boldCount:', boldMarkerCount, 'items:', scanned.items.length, 'clues:', scanned.clues.length, 'locs:', scanned.locations.length, 'isRefresh:', isRefresh);
+      console.log('[useGameState] text preview (last 300):', aiFullText?.slice(-300));
 
       const hypotheses = groundHypotheses(parseAIForReasoningUpdates(aiFullText), {
         clues: [...(gameState.clues || []), ...scanned.clues],
