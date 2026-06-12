@@ -4,6 +4,40 @@
 
 ### 新功能
 
+- **新故事引导弹窗** — 角色卡(姓名/性别/年龄/身份/背景) + 属性加点 + 故事规模选择(小150/中220/大300轮)
+- **TRPG_EVENTS 统一事件块** — 替代不可靠的粗体标记，JSON结构化格式(snapshot/delta模式)
+- **调查工作台** — 推理板(假设卡片+置信度滑块) + 人物关系(实体点击选中+类型标签+关联关系) + 拖拽证据板
+- **证据板(React Flow)** — 环形布局(我→线索→人物/地点→道具)、🧬合成图谱(自动连线)、手动拖拽连线
+- **道具/线索/场所系统** — 右侧折叠面板、清空按钮、滚动条、12/8上限、NLP知识图谱关联
+- **右侧折叠角色面板** — 角色名/属性/HP-SP/位置 + 主线任务列表
+- **塞尔达·海拉鲁主题皮肤** — 深蓝金配色、自定义背景图、半透明毛玻璃、希卡风格装饰
+- **FastAPI NLP 知识服务** — 结构化JSON + Transformers NER + 规则匹配三层抽取 + NetworkX图分析
+- **故事节奏四档控制** — 150/200/280/350轮分级提示，按故事规模自适应
+- **存档备份/导入** — JSON导出下载 + 文件上传恢复 + 写入失败红色横幅
+- **冒险记录弹窗** — 可改名(✏️)、可删除(🗑️)、居中展示
+- **Humanizer-zh 去AI化** — 系统提示词注入反AI高频词规则
+- **web-design-guidelines 合规** — transition去all、outline加focus-visible、aria-label全覆盖、color-scheme:dark
+- **narrative-director + writer agent** — 故事架构/NPC设计/场景写作辅助
+
+### 架构
+
+- **useGameState 独立** — HP/道具/线索/场所/知识图谱从useAIChat中拆分
+- **存档层写穿模式** — React state唯一数据源，localStorage只写不读回
+- **normalizeGameState** — 旧数据格式安全迁移
+
+### 修复
+
+- onStreamEnd回调丢失 → sendToAI流结束后直接触发
+- parseAIForStateChanges只捕获第一个STATE标签 → matchAll全局合并
+- scanAIForItems三层策略(TRPG_STATE JSON→emoji分区→自然语言兜底)
+- server.js模板字符串反引号语法错误 → 服务端崩溃
+- 线索提取取描述侧 → '冒牌哈桑'→'接头人被调包'
+- 未识别分区标题(⏳/💡)误入内容
+- CORS限定localhost + SSRF域名白名单 + XSS HTML转义
+- ESLint拆分配置(browser/node globals)
+
+## [0.2.0] — 2026-06-03
+
 - **FastAPI NLP 知识服务** (`python_service/`)
   - `extractor.py`: 结构化 JSON + Transformers NER + 规则匹配 三层抽取
   - `graph_analysis.py`: networkx 知识图谱中心度/连通分量分析
