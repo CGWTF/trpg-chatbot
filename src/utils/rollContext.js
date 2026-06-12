@@ -365,6 +365,247 @@ export function parseTRPGState(text) {
   }
 }
 
+/**
+ * Parse the unified event block emitted by the GM.
+ * Legacy TRPG_STATE / TRPG_KNOWLEDGE blocks remain supported elsewhere.
+ */
+export function parseTRPGEvents(text) {
+  const matches = [...String(text || '').matchAll(/<TRPG_EVENTS>\s*([\s\S]*?)\s*<\/TRPG_EVENTS>/gi)];
+  if (!matches.length) return null;
+  let combined = null;
+  for (const match of matches) {
+    const parsed = parseTRPGEventData(match[1]);
+    if (!parsed) continue;
+    combined = mergeTRPGEvents(combined, parsed);
+  }
+  return combined;
+}
+
+function parseTRPGEventData(raw) {
+  try {
+    const data = JSON.parse(raw);
+    const items = normalizeEventObjects(
+      data.items ?? data.inventory ?? data.heldItems ?? data['持有物品'],
+      'name',
+      40,
+      ['acquired', 'lost']
+    );
+    const clues = normalizeEventObjects(
+      data.clues ?? data.intelligence ?? data['重要情报'] ?? data['线索'],
+      'text',
+      80,
+      ['discovered', 'retracted']
+    );
+    const locations = normalizeEventObjects(
+      data.locations ?? data['场所'],
+      'name',
+      40,
+      ['discovered', 'entered']
+    );
+    const people = data.people ?? data.characters ?? data['人物'];
+    const quests = normalizeEventObjects(
+      data.quests ?? data.mainQuests ?? data['主线任务'],
+      'text',
+      100,
+      ['active', 'completed']
+    );
+    const threats = normalizeEventObjects(
+      data.threats ?? data['潜在威胁'],
+      'text',
+      100,
+      ['active', 'resolved']
+    );
+    return {
+      mode: data.mode === 'snapshot' ? 'snapshot' : 'delta',
+      items,
+      clues,
+      locations,
+      quests,
+      threats,
+      currentLocation: typeof data.currentLocation === 'string'
+        ? data.currentLocation.trim().slice(0, 40)
+        : null,
+      entities: normalizeEventEntities(data.entities, people),
+      relations: normalizeEventRelations(data.relations),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function mergeTRPGEvents(current, incoming) {
+  if (!current || incoming.mode === 'snapshot') return incoming;
+  return {
+    mode: current.mode,
+    items: mergeEventList(current.items, incoming.items, 'name'),
+    clues: mergeEventList(current.clues, incoming.clues, 'text'),
+    locations: mergeEventList(current.locations, incoming.locations, 'name'),
+    quests: mergeEventList(current.quests, incoming.quests, 'text'),
+    threats: mergeEventList(current.threats, incoming.threats, 'text'),
+    currentLocation: incoming.currentLocation || current.currentLocation,
+    entities: mergeEventList(current.entities, incoming.entities, 'name', 'type'),
+    relations: mergeEventList(current.relations, incoming.relations, 'source', 'target', 'type'),
+  };
+}
+
+function mergeEventList(current = [], incoming = [], ...keys) {
+  const output = [...current];
+  for (const value of incoming) {
+    const index = output.findIndex((entry) => keys.every((key) => entry[key] === value[key]));
+    if (index >= 0) output[index] = value;
+    else output.push(value);
+  }
+  return output;
+}
+
+export function scanPriorityRecords(text) {
+  const items = [];
+  const entities = [];
+  const quests = [];
+  const locations = [];
+  const threats = [];
+  const clues = [];
+  let section = null;
+  for (const rawLine of String(text || '').split(/\n/)) {
+    const line = rawLine.trim()
+      .replace(/^#{1,6}\s*/, '')
+      .replace(/\*\*/g, '');
+    if (!line) continue;
+    const compactLine = line.replace(/^[^\p{L}\p{N}]+/u, '').replace(/\s+/g, '');
+    if (/^(?:当前|现有|目前|已获得)?(?:持有的?)?(?:物品|道具|装备|背包|随身物品|随身道具)(?:清单|列表|信息)?[：:]?$/.test(compactLine)) {
+      section = 'item';
+      continue;
+    }
+    if (/^(?:已知|重要|主要|相关|具名|关键|当前)?(?:人物|角色|NPC)(?:信息|清单|列表|关系)?[：:]?$/i.test(compactLine)) {
+      section = 'person';
+      continue;
+    }
+    if (/^(?:当前)?主线任务(?:清单|列表|信息)?[：:]?$/.test(compactLine)) {
+      section = 'quest'; continue;
+    }
+    if (/^(?:已知|重要)?(?:地点|场所)(?:清单|列表|信息)?[：:]?$/.test(compactLine)) {
+      section = 'location'; continue;
+    }
+    if (/^(?:当前|已知)?潜在威胁(?:清单|列表|信息)?[：:]?$/.test(compactLine)) {
+      section = 'threat'; continue;
+    }
+    if (/^(?:当前|已知)?重要情报(?:清单|列表|信息)?[：:]?$/.test(compactLine)) {
+      section = 'clue'; continue;
+    }
+    const match = line.match(/^(?:[-*•]|\d+[.、])\s*(.+)$/);
+    if (!match) {
+      if (/^[^\s]{1,12}[：:]/.test(line) && section === 'person') {
+        const name = line.split(/[：:]/, 1)[0].trim();
+        const entity = { name, type: 'person', description: line.slice(name.length + 1).trim() };
+        if (isUsefulEventEntity(entity)) entities.push(entity);
+      }
+      continue;
+    }
+    const value = match[1].trim();
+    if (section === 'item') items.push(value.split(/[：:]/, 1)[0].trim());
+    if (section === 'quest') quests.push(value);
+    if (section === 'location') locations.push(value.split(/[：:]/, 1)[0].trim());
+    if (section === 'threat') threats.push(value);
+    if (section === 'clue') clues.push(value);
+    if (section === 'person') {
+      const name = value.split(/[：:（(]/, 1)[0].trim();
+      const entity = { name, type: 'person', description: value.slice(name.length).replace(/^[：:（(]|[）)]$/g, '').trim() };
+      if (isUsefulEventEntity(entity)) entities.push(entity);
+    }
+  }
+  return {
+    items: [...new Set(items.filter(Boolean))],
+    entities: entities.filter((entity, index, all) => all.findIndex((value) => value.name === entity.name) === index),
+    quests: [...new Set(quests.filter(Boolean))],
+    locations: [...new Set(locations.filter(Boolean))],
+    threats: [...new Set(threats.filter(Boolean))],
+    clues: [...new Set(clues.filter(Boolean))],
+  };
+}
+
+export function findLatestSummaryReply(messages = []) {
+  const summaryPattern = /整理|梳理|汇总|归纳|刷新|同步|总结.*信息|整理.*信息/;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.type !== 'user' || !summaryPattern.test(String(message.text || ''))) continue;
+    const replies = [];
+    for (let replyIndex = index + 1; replyIndex < messages.length; replyIndex += 1) {
+      const reply = messages[replyIndex];
+      if (reply?.type === 'user') break;
+      if (reply?.type === 'bot' && reply.text) replies.push(reply.text);
+    }
+    if (replies.length) return replies.join('\n\n');
+  }
+  return '';
+}
+
+function normalizeEventObjects(values, key, limit, allowedActions) {
+  if (!Array.isArray(values)) return [];
+  const output = [];
+  const seen = new Set();
+  for (const value of values) {
+    if (!value) continue;
+    const objectValue = typeof value === 'string' ? { [key]: value } : value;
+    if (typeof objectValue !== 'object') continue;
+    const aliases = key === 'name' ? ['name', 'item', 'location'] : ['text', 'clue', 'name'];
+    const rawText = aliases.map((alias) => objectValue[alias]).find((entry) => typeof entry === 'string');
+    const text = rawText ? rawText.trim().slice(0, limit) : '';
+    const action = allowedActions.includes(objectValue.action) ? objectValue.action : allowedActions[0];
+    const identity = `${action}:${text}`;
+    if (!text || seen.has(identity)) continue;
+    seen.add(identity);
+    output.push({
+      ...objectValue,
+      [key]: text,
+      action,
+      source: typeof objectValue.source === 'string' ? objectValue.source.trim().slice(0, 40) : '',
+      evidence: typeof objectValue.evidence === 'string' ? objectValue.evidence.trim().slice(0, 160) : '',
+    });
+  }
+  return output;
+}
+
+function normalizeEventEntities(values, people) {
+  const combined = [
+    ...(Array.isArray(values) ? values : []),
+    ...(Array.isArray(people)
+      ? people.map((value) => typeof value === 'string' ? { name: value, type: 'person' } : { ...value, type: 'person' })
+      : []),
+  ];
+  return combined
+    .map((value) => typeof value === 'string' ? { name: value, type: 'person' } : value)
+    .filter((value) => value && typeof value.name === 'string'
+      && ['person', 'place', 'organization'].includes(value.type))
+    .map((value) => ({
+      name: value.name.trim().slice(0, 40),
+      type: value.type,
+      description: typeof value.description === 'string' ? value.description.trim().slice(0, 160) : '',
+    }))
+    .filter((value) => isUsefulEventEntity(value))
+    .filter((value, index, all) => value.name
+      && all.findIndex((entry) => entry.name === value.name && entry.type === value.type) === index);
+}
+
+function isUsefulEventEntity(entity) {
+  if (!entity.name) return false;
+  if (entity.type !== 'person') return true;
+  const genericRole = /^(?:(?:一名|一个|这名|那名|这位|那位|年轻|年迈|神秘|陌生|受伤|沉默|老)?(?:管家|守卫|卫兵|士兵|旅客|旅人|路人|村民|居民|店主|老板|酒保|侍者|仆人|女仆|侍卫|车夫|船夫|医生|教授|神父|侦探|警察|队长|商人|女子|男子|老人|少女|少年|孩子|黑衣人|陌生人|蒙面人))$/;
+  return !genericRole.test(entity.name);
+}
+
+function normalizeEventRelations(values) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value) => value && typeof value.source === 'string' && typeof value.target === 'string')
+    .map((value) => ({
+      source: value.source.trim().slice(0, 40),
+      target: value.target.trim().slice(0, 40),
+      type: typeof value.type === 'string' ? value.type.trim().slice(0, 40) : 'related_to',
+      evidence: typeof value.evidence === 'string' ? [value.evidence.trim().slice(0, 160)] : [],
+    }))
+    .filter((value) => value.source && value.target && value.source !== value.target);
+}
+
 // ── 启发式回复扫描 ──
 
 /**
@@ -372,7 +613,7 @@ export function parseTRPGState(text) {
  *
  * 三层策略（优先级从高到低）：
  * 1. 粗体标记：**获得道具：X** / **发现线索：X** / **得知场所：X**
- * 2. emoji 分区：🎒道具 / 📜线索 / 🏛️场所 等标题下的列表
+ * 2. 明确文字分区：道具 / 线索 / 场所 等标题下的列表
  * 3. 自然语言：获得X / 发现X（最弱，仅兜底）
  */
 export function scanAIForItems(text) {
@@ -404,9 +645,9 @@ export function scanAIForItems(text) {
     if (name.length >= 2 && name.length <= 30) currentLocation = name;
   }
 
-  // ── 策略2：emoji 分区列表（粗体没匹配到时启用） ──
+  // ── 策略2：明确文字分区列表（粗体没匹配到时启用） ──
   if (items.length === 0 && clues.length === 0 && locations.length === 0) {
-    const sections = parseEmojiSections(text);
+    const sections = parseTextSections(text);
     items.push(...sections.items);
     clues.push(...sections.clues);
     locations.push(...sections.locations);
@@ -451,10 +692,10 @@ export function scanAIForItems(text) {
 }
 
 /**
- * 解析 emoji 分区格式的 AI 回复
- * 处理 🎒随身道具 / 📜线索 / 🏛️场所 等标题后的编号列表
+ * 解析明确文字分区格式的 AI 回复。
+ * Emoji 只作为可忽略装饰，不参与类别判断。
  */
-function parseEmojiSections(text) {
+function parseTextSections(text) {
   const items = [];
   const clues = [];
   const locations = [];
@@ -468,14 +709,18 @@ function parseEmojiSections(text) {
     if (!line) continue;
 
     // 检测是否是标题行
-    const stripped = line.replace(/\*\*/g, '').replace(/[：:].*$/, '');
-    if (/^(?:🎒|随身道具|随身物品|道具|物品|背包)/.test(stripped)) {
+    const stripped = line
+      .replace(/\*\*/g, '')
+      .replace(/^[^\p{L}\p{N}]+/u, '')
+      .replace(/[：:].*$/, '')
+      .replace(/\s+/g, '');
+    if (/^(?:随身道具|随身物品|持有道具|持有物品|道具|物品|背包)(?:清单|列表|信息)?$/.test(stripped)) {
       currentTarget = items; continue;
     }
-    if (/^(?:📜|🔍|已获取的线索|已知线索|已知信息|信息与线索|线索|信息)/.test(stripped)) {
+    if (/^(?:已获取的线索|已知线索|已知信息|信息与线索|线索|信息)(?:清单|列表|日志)?$/.test(stripped)) {
       currentTarget = clues; continue;
     }
-    if (/^(?:🏛️|📍|已知场所|场所|地点|探索)/.test(stripped)) {
+    if (/^(?:已知场所|场所|地点|探索地点)(?:清单|列表|信息)?$/.test(stripped)) {
       currentTarget = locations; continue;
     }
 
@@ -483,7 +728,8 @@ function parseEmojiSections(text) {
 
     // 跳过标题行和空白
     const bareLine = line.replace(/\*\*/g, '');
-    if (/^(?:⏳|💡|⚠️|⚔️|🗺️|🏷️|🎯)/u.test(bareLine) && /[：:]/.test(bareLine)) {
+    const isListItem = /^(?:[-*•]|\d+[.、)])\s*/.test(bareLine);
+    if (!isListItem && /[：:]$/.test(bareLine)) {
       currentTarget = null;
       continue;
     }
@@ -532,6 +778,8 @@ const DEFAULT_GAME_STATE = {
   sp: 10,
   maxSp: 10,
   inventory: [],   // 道具背包
+  quests: [],      // 主线任务
+  threats: [],     // 潜在威胁
   clues: [],       // 线索日志
   locations: [],   // 已知场所
   location: '',    // 当前位置

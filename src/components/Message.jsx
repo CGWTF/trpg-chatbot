@@ -117,7 +117,7 @@ function escapeHtml(str) {
 
 function formatMessage(text) {
   // 先转义 HTML 防止 XSS，再做 markdown 替换
-  let html = escapeHtml(text)
+  let html = escapeHtml(stripReasoningBlock(text))
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code>$1</code>');
@@ -135,4 +135,13 @@ function formatMessage(text) {
   );
 
   return html.replace(/\n/g, '<br/>');
+}
+
+function stripReasoningBlock(text) {
+  return text
+    .replace(/<TRPG_EVENTS>[\s\S]*?<\/TRPG_EVENTS>/gi, '')
+    .replace(/<TRPG_STATE>[\s\S]*?<\/TRPG_STATE>/gi, '')
+    .replace(/<TRPG_REASONING>[\s\S]*?<\/TRPG_REASONING>/gi, '')
+    .replace(/<TRPG_KNOWLEDGE>[\s\S]*?<\/TRPG_KNOWLEDGE>/gi, '')
+    .trim();
 }

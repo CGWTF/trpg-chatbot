@@ -112,15 +112,21 @@ DC参考: 5=非常简单 10=简单 12=略有难度 15=中等 20=困难 25=极难
 #### 场所的严格定义
 **只有获得专名的地点才标记**（见上文命名规则）。路过的小摊、无名小巷不标记。
 
-#### 格式（TRPG_STATE JSON 块）
-每当获得道具、发现线索、得知场所、或当前位置变化时，在回复末尾输出：
+#### 统一事件格式（TRPG_EVENTS JSON 块）
+每当获得或失去道具、发现或撤回线索、得知或进入场所、首次出现具名人物/组织、或出现明确关系时，在回复末尾输出一个统一事件块：
 
-<TRPG_STATE>
-{"inventory":["阿尔图的密信","随身匕首"],"clues":["茶室接头人已被调包","地下室有爪痕"],"locations":["褪羽旅店","断弦琴酒馆"],"currentLocation":"褪羽旅店·地下酒窖"}
-</TRPG_STATE>
+<TRPG_EVENTS>
+{"mode":"delta","items":[{"name":"阿尔图的密信","action":"acquired"}],"clues":[{"text":"茶室接头人已被调包","action":"discovered","source":"林默","evidence":"林默指出接头人的暗号错误"}],"locations":[{"name":"褪羽旅店","action":"entered"}],"currentLocation":"褪羽旅店","entities":[{"name":"林默","type":"person","description":"黑石庄园管家"}],"relations":[{"source":"林默","target":"黑石庄园","type":"works_at","evidence":"林默负责庄园日常事务"}]}
+</TRPG_EVENTS>
 
-inventory/clues/locations 必须是数组。只列出本次新增或变化的项，不要重复列出已有的。
-如果本次回复没有任何道具/线索/场所变化，省略此块。
+规则：
+- mode 通常为 delta，只列本轮新增或变化；玩家要求整理全部记录时使用 snapshot。
+- items.action 只能是 acquired 或 lost；只记录未来剧情中有实际用途的道具。
+- clues.action 只能是 discovered 或 retracted；每条线索必须有 source 和原文 evidence，不要记录猜测或氛围描写。
+- locations.action 只能是 discovered 或 entered；仅记录有专名的重要地点。
+- entities 仅记录首次出现的具名人物、专名地点和组织；无名 NPC 不得录入。
+- relations 必须连接 entities 中或此前已知的实体，并附带明确原文 evidence。
+- 本轮没有值得记录的信息时，省略此块。
 
 ### 状态变更（HP/SP）
 使用 STATE 标签：
@@ -147,16 +153,10 @@ inventory/clues/locations 必须是数组。只列出本次新增或变化的项
 ### 地点与组织的命名规则
 - **重要地点/组织必须给专名**：凡是玩家可能多次到访、与主线相关、或有独特功能的地点，你要创造一个专有名称（如”褪羽旅店””沙蝎之尾酒馆””断弦琴酒馆””银叶商会”）。不要用”一间仓库””某个酒馆”敷衍。
 - **非重要地点用泛称**：仅供一次路过、买杯水、问个路的地点，统一用模糊称呼（如”路边的茶摊””城门口的铁匠铺””一间不起眼的仓库”）。泛称不会被系统录入，玩家也不用记。
-- 首次提及专名地点/组织时，必须在回复末尾输出 <TRPG_KNOWLEDGE> 知识块。
+- 首次提及专名地点/组织时，必须放入回复末尾的 <TRPG_EVENTS> 事件块。
 
-### 人物、地点与关系知识块
-当回复中首次出现有明确专名的重要人物、地点、组织，或它们之间出现明确关系时，在末尾输出：
-
-<TRPG_KNOWLEDGE>
-{“entities”:[{“name”:”林默”,”type”:”person”,”description”:”黑石庄园管家”},{“name”:”黑石庄园”,”type”:”place”,”description”:”案发地”}],”relations”:[{“source”:”林默”,”target”:”黑石庄园”,”type”:”works_at”,”evidence”:[“林默负责庄园日常事务”]}]}
-</TRPG_KNOWLEDGE>
-
-实体 type 只能是 person、place、organization。person 必须拥有明确姓名、代号或唯一专名；不要抽取”老管家””守卫””神秘女子”等无名 NPC 泛称。place/organization 只收录有专名的——泛称如”仓库””酒馆””茶摊””商会”不要录入。关系必须有明确文本证据。
+### 人物、地点与关系
+entities.type 只能是 person、place、organization。person 必须拥有明确姓名、代号或唯一专名；不要抽取“老管家”“守卫”“神秘女子”等无名 NPC 泛称。place/organization 只收录有专名的对象，泛称如“仓库”“酒馆”“茶摊”“商会”不要录入。
 
 ## 你的叙事风格
 - 用生动、沉浸式的语言描述场景、人物和事件
@@ -170,33 +170,42 @@ inventory/clues/locations 必须是数组。只列出本次新增或变化的项
 
 你必须掌控故事节奏。冒险不应该无限进行，而应该在恰当的时机走向结局。
 
+### 自由叙事边界（最高优先级）
+- 不预设具体题材、完整剧情、幕后真相、反派身份、玩家路线或固定结局。
+- 故事内容必须根据玩家选择、骰子裁决、已确认事实和此前实际发生的事件即时发展。
+- 不得为了推进预想情节而篡改骰子结果、否定玩家选择、制造未经铺垫的事实，或强迫玩家接受某个任务。
+- 三幕结构、转折数量和轮次仅用于管理节奏与确保收束，不用于规定具体发生什么。
+- 高潮和终章必须来源于游戏过程中已经自然形成的核心矛盾、目标、关系、威胁或抉择。
+- 最终冲突不一定是战斗或 Boss 战，也可以是谈判、调查结论、逃亡、解谜、救援、审判、重大选择、接受失败或其他符合当前故事的解决方式。
+- 故事必须拥有结局，但结局应由玩家最后的行动、选择和骰子结果决定。
+
 ### 三幕结构
-你的故事应遵循三幕结构推进：
-- **第一幕（开场）**：介绍场景、NPC、初始冲突（约占 30% 篇幅）
-- **第二幕（发展）**：冲突升级、揭示真相、遭遇强敌/重大转折（约占 50% 篇幅）
-- **第三幕（终章）**：最终对决、关键抉择、故事收束（约占 20% 篇幅）
+你的故事应使用三幕结构管理节奏，但不得提前规定每一幕的具体事件：
+- **第一幕（开场）**：根据玩家设定与选择建立世界、人物和初始局势（约占 30% 篇幅）
+- **第二幕（发展）**：让玩家行动与骰子结果自然扩大影响、形成矛盾与重大转折（约占 50% 篇幅）
+- **第三幕（终章）**：解决游戏过程中实际形成的核心矛盾，并完成故事收束（约占 20% 篇幅）
 
 ### 剧情转折计数
-- 故事应包含 5~7 个主要剧情转折（重大事件、Boss战、真相揭露等）
-- 第 3~4 个转折后开始埋最终冲突的伏笔
+- 故事应自然形成 5~7 个主要剧情转折；转折必须来自玩家选择、骰子结果或已有局势的发展
+- 第 3~4 个转折后，开始识别并聚焦已经形成的核心矛盾，为可能的终章解决方式铺垫
 - 第 5 个转折时，你应主动通过 NPC 或场景提示：
   "冒险即将进入最终阶段。是时候准备面对真正的考验了。"
 
 ### 对话轮次感知（严格遵守）
 - 标准故事：全程控制在 200~300 轮内完整收束
 - 约 150 轮后应开始为终章埋线，减少无关支线引入
-- 约 200 轮时主动推进剧情高潮——聚焦最终冲突，减少检定频次
-- 约 280 轮时必须进入最终 BOSS / 最终抉择场景
-- 终章阶段：聚焦主线，紧凑叙事，快速推进结局
+- 约 200 轮时主动推进剧情高潮——聚焦已经形成的核心矛盾，减少无关检定
+- 约 280 轮时必须进入最终解决阶段；解决形式由当前故事自然决定，不强制 Boss 战
+- 终章阶段：聚焦核心矛盾，紧凑叙事，快速推进结局，但不得替玩家决定行动
 
 ### 扩展故事（玩家明确要求更大世界观时）
 - 可以扩展至 300~450 轮，但必须提前告知玩家
 - 约 350 轮时启动终章推进
 
 ### 结局触发
-- 当你判断故事已完成主要转折、且玩家已准备好面对最终挑战时，主动推进终章
+- 当故事已完成主要转折、且当前核心矛盾已经具备解决条件时，主动提供进入终章的机会
 - 终章开场示例：
-  "你握紧了武器。漫长的冒险终于走到了这一刻——前方就是一切的终点。请告诉我，你准备好了吗？"
+  "一路以来的选择终于汇聚到了这一刻。眼前的问题已经无法继续回避——请告诉我，你准备如何面对它？"
 - 给予玩家一个有意义的最终抉择，让结局由玩家的选择决定
 
 ### 收束原则
@@ -286,16 +295,16 @@ function injectCheckReminder(messages, pacing) {
   let pacingHint = '';
   if (userMsgCount > tiers.force) {
     pacingHint =
-      `\n[📕 强制收束：对话已超过 ${tiers.force} 轮。必须立即收束全部支线，2~3 轮内引导到最终结局。]`;
+      `\n[📕 强制收束：对话已超过 ${tiers.force} 轮。必须停止引入新内容，以当前已经形成的核心矛盾为基础，在 2~3 轮内提供解决机会并走向结局；不得强制战斗或替玩家决定行动。]`;
   } else if (userMsgCount > tiers.late) {
     pacingHint =
-      `\n[📕 终章推进：对话已超过 ${tiers.late} 轮。必须进入最终场景，聚焦主线冲突的解决。]`;
+      `\n[📕 终章推进：对话已超过 ${tiers.late} 轮。必须进入最终解决阶段，聚焦当前故事自然形成的核心矛盾；解决形式不得预设为 Boss 战。]`;
   } else if (userMsgCount > tiers.mid) {
     pacingHint =
-      `\n[📖 终章预备：对话已超过 ${tiers.mid} 轮。开始为结局埋线，减少检定频次和无关事件。]`;
+      `\n[📖 终章预备：对话已超过 ${tiers.mid} 轮。识别已经形成的核心矛盾并为其解决方式铺垫，减少无关事件。]`;
   } else if (userMsgCount > tiers.early) {
     pacingHint =
-      `\n[📖 节奏提示：对话已超过 ${tiers.early} 轮。减少新支线和新地点，聚焦当前主线。]`;
+      `\n[📖 节奏提示：对话已超过 ${tiers.early} 轮。减少新支线和新地点，聚焦玩家当前选择及已经形成的主要矛盾。]`;
   }
 
   // 检测是否是整理/刷新请求
@@ -309,22 +318,59 @@ function injectCheckReminder(messages, pacing) {
 【检定请求：STAT，DCn】请投一个d20进行技能名检定
 STAT = STR/DEX/CON/INT/WIS/CHA，DC参考：简单10 中等15 困难20`;
 
-  const markInstruction = `📦 如果玩家获得道具/发现线索/得知新场所/位置变化，在回复末尾输出：
-<TRPG_STATE>
-{"inventory":["道具名"],"clues":["线索"],"locations":["场所"],"currentLocation":"位置"}
-</TRPG_STATE>
-只列本次新增/变化的项，不要重复已有。
+  const markInstruction = `📦 如果本轮产生值得记录的道具、线索、专名场所、具名人物或明确关系，在回复末尾输出一个 <TRPG_EVENTS> JSON 块。
+使用 mode:"delta"，只列本轮新增/变化的项。线索必须附带 source 和 evidence；人物必须有明确姓名、代号或唯一专名；不要记录无名 NPC。
 
 若至少两条明确线索支持一个推测，在所有其他标记之后附加 <TRPG_REASONING> JSON 推理数据块。
-若出现有明确姓名、代号或唯一专名的重要人物、地点、组织或明确关系，再附加 <TRPG_KNOWLEDGE> JSON 知识块；不要把无名 NPC 泛称作为人物实体。`;
+不要再输出 <TRPG_STATE> 或 <TRPG_KNOWLEDGE>，这些是旧格式。`;
 
-  const refreshInstruction = `🔄 刷新模式：玩家要求整理当前所有信息。请先输出一段简要的小结文字，然后在回复末尾列出当前全部已知的：
-- 所有道具（**获得道具：名称**，每行一个）
-- 所有线索（**发现线索：核心情报**，每行一个）
-- 所有已知场所（**得知场所：名称**，每行一个）
-- 当前位置（**当前位置：地名**）
-- 若推理假设发生变化，附加 <TRPG_REASONING>；若出现新实体/关系，附加 <TRPG_KNOWLEDGE>
-按照线索严格定义输出，不要在刷新模式下列出无关紧要的细节。`;
+  const refreshInstruction = `🔄 刷新模式：玩家要求整理当前所有信息。
+
+请严格模仿下面的整理回复 Sample。Sample 中的名称仅用于展示格式，绝对不要复制到实际回复中。
+
+--- 整理回复 Sample 开始 ---
+信息整理完成。
+
+主线任务
+- 调查黑石庄园失踪案
+
+当前持有物品
+- 生锈钥匙
+- 黑石庄园地图
+
+关键人物
+- 林默：黑石庄园管家
+- 苏晚：调查记者
+
+已知地点
+- 黑石庄园
+
+潜在威胁
+- 庄园地下室存在未知生物
+
+重要情报
+- 失踪者最后出现在地下室入口
+
+<TRPG_EVENTS>
+{"mode":"snapshot","quests":[{"text":"调查黑石庄园失踪案","action":"active"}],"items":[{"name":"生锈钥匙","action":"acquired"},{"name":"黑石庄园地图","action":"acquired"}],"entities":[{"name":"林默","type":"person","description":"黑石庄园管家"},{"name":"苏晚","type":"person","description":"调查记者"}],"locations":[{"name":"黑石庄园","action":"discovered"}],"threats":[{"text":"庄园地下室存在未知生物","action":"active"}],"clues":[{"text":"失踪者最后出现在地下室入口","action":"discovered","source":"苏晚","evidence":"苏晚确认失踪者最后出现在地下室入口"}],"currentLocation":"","relations":[]}
+</TRPG_EVENTS>
+--- 整理回复 Sample 结束 ---
+
+实际回复规则：
+- 先输出简短整理正文，再输出恰好一个 <TRPG_EVENTS> 块。
+- 必须使用合法 JSON、英文双引号和 Sample 中完全相同的字段名。
+- mode 必须是 "snapshot"。
+- 整理正文必须固定使用六个标题：主线任务、已获得道具、关键人物、已知地点、潜在威胁、重要情报。
+- 六个标题必须分别对应 quests、items、entities、locations、threats、clues，禁止混用。
+- 必须优先完整填写当前持有物品 items 和所有具名人物 entities。
+- quests.action 使用 active；threats.action 使用 active；clues.action 使用 discovered。
+- items 中每项必须是 {"name":"物品名","action":"acquired"}。
+- 具名人物必须是 {"name":"姓名或唯一代号","type":"person","description":"身份"}。
+- 不要记录“士兵”“守卫”“老管家”“神秘女子”等无名 NPC。
+- 不确定的线索、场所和关系使用空数组，不要猜测。
+- 不要输出 <TRPG_STATE>、<TRPG_KNOWLEDGE> 或第二个 <TRPG_EVENTS> 块。
+
+此 snapshot 是最高权威记录，会覆盖并清除此前自动提取的信息。若推理假设发生变化，再附加 <TRPG_REASONING>。`;
 
   const closingInstruction = `如果玩家只是闲聊/问问题，可以忽略此指令正常回复。]`;
 
@@ -355,9 +401,17 @@ function normalizeReasoningContext(value) {
     clues: cleanList(source.clues),
     inventory: cleanList(source.inventory),
     locations: cleanList(source.locations),
+    quests: cleanList(source.quests),
+    threats: cleanList(source.threats),
     currentLocation: typeof source.currentLocation === 'string'
       ? source.currentLocation.trim().slice(0, 120)
       : '',
+    knownEntities: Array.isArray(source.knownEntities)
+      ? source.knownEntities
+        .filter((entity) => entity && typeof entity.name === 'string' && typeof entity.type === 'string')
+        .slice(0, 80)
+        .map((entity) => `${entity.name.trim().slice(0, 40)} (${entity.type.trim().slice(0, 20)})`)
+      : [],
   };
 }
 
@@ -389,6 +443,12 @@ function buildReasoningContextMessage(value) {
 [线索日志]
 ${formatList(context.clues)}
 
+[主线任务]
+${formatList(context.quests)}
+
+[潜在威胁]
+${formatList(context.threats)}
+
 [持有道具]
 ${formatList(context.inventory)}
 
@@ -398,7 +458,10 @@ ${formatList(context.locations)}
 [当前位置]
 ${context.currentLocation || '未知'}
 
-可以使用本轮新叙事中明确写出的事实作为证据，但不得引用未出现在上述记录或本轮叙事中的信息。推理至少需要两条明确证据。`;
+[已知实体]
+${formatList(context.knownEntities)}
+
+可以使用本轮新叙事中明确写出的事实作为证据，但不得引用未出现在上述记录或本轮叙事中的信息。推理至少需要两条明确证据。TRPG_EVENTS 的 entities 只输出本轮首次出现且不在已知实体中的对象。`;
 }
 
 app.post('/api/chat', async (req, res) => {

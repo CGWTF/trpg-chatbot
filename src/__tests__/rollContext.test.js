@@ -8,7 +8,262 @@ import {
   applyStateChanges,
   getDefaultGameState,
   getStatName,
+  scanAIForItems,
+  parseTRPGEvents,
+  scanPriorityRecords,
+  findLatestSummaryReply,
+  parseAIForReasoningUpdates,
+  groundHypotheses,
+  mergeHypotheses,
 } from '../utils/rollContext';
+
+describe('scanAIForItems location detection', () => {
+  it('recognizes an explicit current-location marker', () => {
+    const result = scanAIForItems('你推开门。\n**当前位置：断弦琴酒馆地下室**');
+    expect(result.currentLocation).toBe('断弦琴酒馆地下室');
+    expect(result.locations).toContain('断弦琴酒馆地下室');
+  });
+
+  it('recognizes a clear movement narration', () => {
+    const result = scanAIForItems('你们终于抵达了雾港码头。海风迎面吹来。');
+    expect(result.currentLocation).toBe('雾港码头');
+  });
+
+  it('does not treat a mentioned location as the current location', () => {
+    const result = scanAIForItems('酒保告诉你，断弦琴酒馆地下室可能藏着秘密。');
+    expect(result.currentLocation).toBeNull();
+  });
+
+  it('does not use emoji alone to classify list content', () => {
+    const result = scanAIForItems('🎒\n- 生锈钥匙\n🔍\n- 地下室有爪痕');
+    expect(result.items).toEqual([]);
+    expect(result.clues).toEqual([]);
+  });
+
+  it('classifies by heading text even when the emoji is misleading', () => {
+    const result = scanAIForItems('🔍 持有物品\n- 生锈钥匙\n🎒 已知线索\n- 地下室存在异常爪痕');
+    expect(result.items).toEqual(['生锈钥匙']);
+    expect(result.clues).toEqual(['地下室存在异常爪痕']);
+  });
+});
+
+describe('TRPG_EVENTS parsing', () => {
+  it('parses unified state and knowledge events', () => {
+    const result = parseTRPGEvents(`
+      <TRPG_EVENTS>
+      {"mode":"delta","items":[{"name":"生锈钥匙","action":"acquired"},{"name":"旧地图","action":"lost"}],"clues":[{"text":"林默持有备用钥匙","action":"discovered","source":"林默","evidence":"林默展示了钥匙"}],"locations":[{"name":"黑石庄园","action":"entered"}],"entities":[{"name":"林默","type":"person","description":"庄园管家"}],"relations":[{"source":"林默","target":"黑石庄园","type":"works_at","evidence":"林默负责庄园事务"}]}
+      </TRPG_EVENTS>
+    `);
+
+    expect(result.items).toHaveLength(2);
+    expect(result.clues[0].source).toBe('林默');
+    expect(result.currentLocation).toBeNull();
+    expect(result.entities[0].name).toBe('林默');
+    expect(result.relations[0].evidence).toEqual(['林默负责庄园事务']);
+  });
+
+  it('rejects malformed event blocks', () => {
+    expect(parseTRPGEvents('<TRPG_EVENTS>{bad json}</TRPG_EVENTS>')).toBeNull();
+  });
+
+  it('accepts simplified refresh fields for people and inventory', () => {
+    const result = parseTRPGEvents(`
+      <TRPG_EVENTS>
+      {"mode":"snapshot","inventory":["生锈钥匙","庄园地图"],"people":["林默",{"name":"苏晚","description":"调查记者"}]}
+      </TRPG_EVENTS>
+    `);
+
+    expect(result.items.map((item) => item.name)).toEqual(['生锈钥匙', '庄园地图']);
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默', '苏晚']);
+  });
+
+  it('does not accept unnamed NPC labels from simplified people fields', () => {
+    const result = parseTRPGEvents(
+      '<TRPG_EVENTS>{"people":["林默","老管家","神秘女子"]}</TRPG_EVENTS>'
+    );
+
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默']);
+  });
+
+  it('combines multiple event blocks and respects the latest snapshot', () => {
+    const result = parseTRPGEvents(`
+      <TRPG_EVENTS>{"items":["旧钥匙"],"people":["旧人物"]}</TRPG_EVENTS>
+      <TRPG_EVENTS>{"mode":"snapshot","inventory":["庄园地图"],"people":["林默"]}</TRPG_EVENTS>
+      <TRPG_EVENTS>{"items":["密信"],"people":["苏晚"]}</TRPG_EVENTS>
+    `);
+
+    expect(result.items.map((item) => item.name)).toEqual(['庄园地图', '密信']);
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默', '苏晚']);
+  });
+
+  it('parses all six investigation workspace categories', () => {
+    const result = parseTRPGEvents(`
+      <TRPG_EVENTS>
+      {"mode":"snapshot","quests":[{"text":"调查失踪案","action":"active"}],"items":[{"name":"生锈钥匙","action":"acquired"}],"entities":[{"name":"林默","type":"person"}],"locations":[{"name":"黑石庄园","action":"discovered"}],"threats":[{"text":"地下室存在未知生物","action":"active"}],"clues":[{"text":"失踪者最后出现在地下室入口","action":"discovered"}]}
+      </TRPG_EVENTS>
+    `);
+
+    expect(result.quests[0].text).toBe('调查失踪案');
+    expect(result.items[0].name).toBe('生锈钥匙');
+    expect(result.entities[0].name).toBe('林默');
+    expect(result.locations[0].name).toBe('黑石庄园');
+    expect(result.threats[0].text).toBe('地下室存在未知生物');
+    expect(result.clues[0].text).toBe('失踪者最后出现在地下室入口');
+  });
+});
+
+describe('priority record scanning', () => {
+  it('recovers people and held items from an existing markdown summary', () => {
+    const result = scanPriorityRecords(`
+      ### 当前持有物品
+      - 生锈钥匙
+      - 庄园地图：标出了地下室
+
+      ### 主要人物
+      - 林默：黑石庄园管家
+      - 老管家：无名 NPC
+      - 苏晚（调查记者）
+    `);
+
+    expect(result.items).toEqual(['生锈钥匙', '庄园地图']);
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默', '苏晚']);
+  });
+
+  it('recognizes common summary headings for equipment and named NPCs', () => {
+    const result = scanPriorityRecords(`
+      ## 🎒 当前持有的物品清单
+      1. 银色怀表：能够打开暗门
+
+      ## 👤 关键 NPC 信息
+      - 林默：庄园管家
+      - 士兵：无名 NPC
+    `);
+
+    expect(result.items).toEqual(['银色怀表']);
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默']);
+  });
+
+  it('maps the six fixed summary headings to separate categories', () => {
+    const result = scanPriorityRecords(`
+      主线任务：
+      - 调查失踪案
+      已获得道具：
+      - 生锈钥匙
+      关键人物：
+      - 林默：庄园管家
+      已知地点：
+      - 黑石庄园
+      潜在威胁：
+      - 地下室存在未知生物
+      重要情报：
+      - 失踪者最后出现在地下室入口
+    `);
+
+    expect(result.quests).toEqual(['调查失踪案']);
+    expect(result.items).toEqual(['生锈钥匙']);
+    expect(result.entities.map((entity) => entity.name)).toEqual(['林默']);
+    expect(result.locations).toEqual(['黑石庄园']);
+    expect(result.threats).toEqual(['地下室存在未知生物']);
+    expect(result.clues).toEqual(['失踪者最后出现在地下室入口']);
+  });
+
+  it('selects only the reply to the latest summary request', () => {
+    const result = findLatestSummaryReply([
+      { type: 'user', text: '整理一下信息' },
+      { type: 'bot', text: '旧整理结果' },
+      { type: 'user', text: '继续前进' },
+      { type: 'bot', text: '遇到士兵' },
+      { type: 'user', text: '请汇总当前信息' },
+      { type: 'bot', text: '最新整理结果' },
+      { type: 'user', text: '谢谢' },
+    ]);
+
+    expect(result).toBe('最新整理结果');
+  });
+});
+
+describe('reasoning updates', () => {
+  it('parses hypotheses with evidence from a structured block', () => {
+    const result = parseAIForReasoningUpdates(`
+      <TRPG_REASONING>
+      {"hypotheses":[{"statement":"管家可能进入过书房","evidence":["备用钥匙在管家手中","门锁没有破坏痕迹"],"contradictions":["管家声称整晚在厨房"],"confidence":65,"status":"open"}]}
+      </TRPG_REASONING>
+    `);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].statement).toBe('管家可能进入过书房');
+    expect(result[0].confidence).toBe(65);
+    expect(result[0].evidence).toHaveLength(2);
+  });
+
+  it('rejects hypotheses without supporting evidence', () => {
+    const result = parseAIForReasoningUpdates(
+      '<TRPG_REASONING>{"hypotheses":[{"statement":"管家是凶手","evidence":[],"confidence":100}]}</TRPG_REASONING>'
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('updates an existing hypothesis instead of duplicating it', () => {
+    const current = [{ id: 'h1', statement: '管家可能说谎', evidence: ['旧线索'], contradictions: [], confidence: 30, status: 'open' }];
+    const updates = [{ id: 'h2', statement: '管家可能说谎', evidence: ['新线索'], contradictions: [], confidence: 60, status: 'open' }];
+    const result = mergeHypotheses(current, updates);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('h1');
+    expect(result[0].confidence).toBe(60);
+  });
+
+  it('binds evidence to recorded clues, items, and locations', () => {
+    const result = groundHypotheses([{
+      id: 'h1',
+      statement: '管家进入过书房',
+      evidence: ['书房门锁没有破坏痕迹', '备用钥匙在管家手中'],
+      contradictions: [],
+      confidence: 70,
+      status: 'open',
+    }], {
+      clues: ['书房门锁没有破坏痕迹'],
+      inventory: ['备用钥匙在管家手中'],
+      locations: ['书房'],
+      generatedText: '',
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].evidenceSources.map((item) => item.source)).toEqual(['clue', 'item']);
+  });
+
+  it('rejects unsupported evidence before saving a hypothesis', () => {
+    const result = groundHypotheses([{
+      id: 'h1',
+      statement: '管家进入过书房',
+      evidence: ['没有出现过的证据', '另一个凭空证据'],
+      contradictions: [],
+      confidence: 90,
+      status: 'open',
+    }], {
+      clues: ['真实线索'],
+      generatedText: '这一轮没有提供相关事实。',
+    });
+
+    expect(result).toEqual([]);
+  });
+
+  it('allows explicit current-narrative evidence but caps its confidence', () => {
+    const result = groundHypotheses([{
+      id: 'h1',
+      statement: '访客可能熟悉庄园',
+      evidence: ['访客避开了松动地板', '访客直接走向暗门'],
+      contradictions: [],
+      confidence: 80,
+      status: 'open',
+    }], {
+      generatedText: '访客避开了松动地板，随后访客直接走向暗门。',
+    });
+
+    expect(result[0].confidence).toBe(45);
+    expect(result[0].evidenceSources.every((item) => item.source === 'narrative')).toBe(true);
+  });
+});
 
 // ── computeOutcome ──
 

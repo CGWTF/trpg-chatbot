@@ -44,7 +44,6 @@ export async function fetchGeneratedImage(prompt) {
  * 配合 <img> 标签直接使用后端代理 URL
  */
 export function generateImageUrl(prompt) {
-  const config = getImageConfig();
   const params = new URLSearchParams();
   // 通过 query params 传递简单配置（GET fallback for pollinations only）
   params.set('prompt', prompt);

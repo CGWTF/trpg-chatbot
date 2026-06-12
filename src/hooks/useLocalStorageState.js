@@ -10,7 +10,7 @@ export default function useLocalStorageState(key, defaultValue) {
     try {
       const stored = localStorage.getItem(key);
       if (stored !== null) return JSON.parse(stored);
-    } catch {}
+    } catch { /* localStorage may be unavailable */ }
     return typeof defaultValue === 'function' ? defaultValue() : defaultValue;
   });
 
@@ -19,7 +19,7 @@ export default function useLocalStorageState(key, defaultValue) {
       const next = typeof newValue === 'function' ? newValue(prev) : newValue;
       try {
         localStorage.setItem(key, JSON.stringify(next));
-      } catch {}
+      } catch { /* localStorage may be unavailable */ }
       return next;
     });
   }, [key]);

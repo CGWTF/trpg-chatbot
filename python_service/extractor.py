@@ -50,13 +50,16 @@ class KnowledgeExtractor:
         structured = self._extract_structured(text)
         entities = structured["entities"]
         relations = structured["relations"]
+        has_events = bool(re.search(r"<TRPG_EVENTS>\s*[\s\S]*?</TRPG_EVENTS>", text, re.I))
 
-        if self.ner:
+        if self.ner and not has_events:
             entities.extend(self._extract_with_model(text))
 
-        entities.extend(self._extract_with_rules(text))
+        if not has_events:
+            entities.extend(self._extract_with_rules(text))
         entities = dedupe_entities(entities)
-        relations.extend(self._extract_relations(text, entities))
+        if not has_events:
+            relations.extend(self._extract_relations(text, entities))
         entity_names = {entity["name"] for entity in entities}
         relations = [
             relation for relation in relations
@@ -65,20 +68,38 @@ class KnowledgeExtractor:
         return {
             "entities": entities,
             "relations": dedupe_relations(relations),
-            "extractor": "transformers" if self.ner else "rules+structured",
+            "extractor": "events" if has_events else ("transformers" if self.ner else "rules+structured"),
         }
 
     def _extract_structured(self, text: str) -> dict:
+        match = re.search(r"<TRPG_EVENTS>\s*([\s\S]*?)\s*</TRPG_EVENTS>", text, re.I)
+        if match:
+            structured = self._parse_structured_json(match.group(1))
+            if structured is not None:
+                return structured
+
         match = re.search(r"<TRPG_KNOWLEDGE>\s*([\s\S]*?)\s*</TRPG_KNOWLEDGE>", text, re.I)
         if not match:
             return {"entities": [], "relations": []}
+        structured = self._parse_structured_json(match.group(1))
+        return structured or {"entities": [], "relations": []}
+
+    def _parse_structured_json(self, raw: str) -> dict | None:
         try:
-            data = json.loads(match.group(1))
+            data = json.loads(raw)
         except json.JSONDecodeError:
-            return {"entities": [], "relations": []}
+            return None
 
         entities = []
-        for value in data.get("entities", []):
+        entity_values = list(data.get("entities", []) or [])
+        entity_values.extend(
+            {"name": value, "type": "person"} if isinstance(value, str) else {**value, "type": "person"}
+            for value in (data.get("people", []) or [])
+            if isinstance(value, (str, dict))
+        )
+        for value in entity_values:
+            if not isinstance(value, dict):
+                continue
             name = str(value.get("name", "")).strip()[:80]
             entity_type = str(value.get("type", "")).lower()
             if entity_type in ENTITY_TYPES and is_valid_entity_name(name, entity_type):
@@ -90,7 +111,10 @@ class KnowledgeExtractor:
             target = str(value.get("target", "")).strip()
             relation_type = str(value.get("type", "related_to")).strip()[:40]
             if source and target and source != target:
-                relations.append(make_relation(source, target, relation_type, value.get("evidence", [])))
+                evidence = value.get("evidence", [])
+                if isinstance(evidence, str):
+                    evidence = [evidence]
+                relations.append(make_relation(source, target, relation_type, evidence))
         return {"entities": entities, "relations": relations}
 
     def _extract_with_model(self, text: str) -> list:

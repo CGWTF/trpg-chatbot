@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
   addEdge, MarkerType, Panel,
@@ -44,25 +44,7 @@ function buildNodes(gameState) {
   return nodes;
 }
 
-function buildEdges(gameState) {
-  const edges = [];
-  let eid = 0;
-  const graph = gameState?.knowledgeGraph;
-  if (graph?.relations) {
-    // Find node IDs by name
-    const nameToId = {};
-    document.querySelectorAll('.react-flow__node').forEach(el => {
-      const text = el.textContent || '';
-      // Not reliable — skip edge building via DOM
-    });
-    // Instead use graph data directly
-    // Edges require node IDs which we don't have cross-reference here
-    // Skip for now — user connects manually
-  }
-  return edges;
-}
-
-export default function EvidenceBoard({ gameState, setGameState }) {
+export default function EvidenceBoard({ gameState }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loaded, setLoaded] = useState(false);
@@ -111,8 +93,8 @@ export default function EvidenceBoard({ gameState, setGameState }) {
           style={{ background: '#0f1624' }}
         />
         <Panel position="top-right">
-          <button className="sidebar-clear-btn" onClick={populate} title="重新加载" style={{ marginRight: 4 }}>🔄</button>
-          <button className="sidebar-clear-btn" onClick={clearBoard} title="清空画布">🗑️</button>
+          <button className="sidebar-clear-btn" onClick={populate} title="重新加载" aria-label="重新加载证据" style={{ marginRight: 4 }}>🔄</button>
+          <button className="sidebar-clear-btn" onClick={clearBoard} title="清空画布" aria-label="清空画布">🗑️</button>
         </Panel>
       </ReactFlow>
     </div>

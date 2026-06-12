@@ -64,7 +64,7 @@ export default function StorySetupWizard({ isOpen, onClose, onComplete, initialS
       <div className="setup-modal" onClick={(e) => e.stopPropagation()}>
         <div className="sidebar-header">
           <h3>📜 新冒险 — {page === 1 ? '角色创建' : '故事规模'}</h3>
-          <button className="sidebar-close-btn" onClick={onClose}>✕</button>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="关闭引导">✕</button>
         </div>
 
         <div className="setup-body">

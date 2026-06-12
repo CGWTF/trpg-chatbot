@@ -17,7 +17,7 @@ export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamE
     beforeSend(input) { return input; },
 
     /** afterSend 回调 */
-    afterSend(input, result) { /* 可扩展 */ },
+    afterSend() { /* 可扩展 */ },
 
     /** AI 请求前 */
     beforeAI(messages) { return messages; },
@@ -50,7 +50,7 @@ export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamE
      * @param {Array} options.messages - 当前对话消息列表（最新版，非 stale）
      * @param {string} options.apiKey - DeepSeek API Key
      */
-    async sendToAI(userText, abortController, { messages, apiKey } = {}) {
+    async sendToAI(userText, abortController, { messages, apiKey, reasoningContext } = {}) {
       if (!apiKey) return null;
 
       let chatMessages = messages
@@ -66,7 +66,7 @@ export default function createAIPlugin({ onStreamStart, onStreamChunk, onStreamE
         const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: chatMessages, apiKey }),
+          body: JSON.stringify({ messages: chatMessages, apiKey, reasoningContext }),
           signal: abortController.signal,
         });
 

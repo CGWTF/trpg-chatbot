@@ -11,6 +11,7 @@ import useGameState from './hooks/useGameState';
 import useAIChat from './hooks/useAIChat';
 import useRollResolution from './hooks/useRollResolution';
 import useImageSettings from './hooks/useImageSettings';
+import { findLatestSummaryReply } from './utils/rollContext';
 import createDicePlugin from './plugins/dicePlugin';
 import createRulePlugin from './plugins/rulePlugin';
 import createImagePlugin from './plugins/imagePlugin';
@@ -72,14 +73,17 @@ export default function App() {
   );
 
   // ── 游戏状态（HP/SP/道具/线索） ──
-  const { gameState, setGameState, applyAIStateUpdate, analyzeKnowledge } =
+  const { gameState, setGameState, applyAIStateUpdate } =
     useGameState(storyGameState, setStoryGameState);
 
   const reasoningContext = useMemo(() => ({
     clues: gameState.clues || [],
     inventory: gameState.inventory || [],
+    quests: gameState.quests || [],
+    threats: gameState.threats || [],
     locations: gameState.locations || [],
     currentLocation: gameState.location || '',
+    knownEntities: gameState.knowledgeGraph?.entities || [],
     pacing: character.pacing || null,
     characterCard: setupComplete ? {
       name: character.name,
@@ -88,7 +92,24 @@ export default function App() {
       identity: character.identity,
       background: character.background,
     } : null,
-  }), [gameState.clues, gameState.inventory, gameState.locations, gameState.location, character, setupComplete]);
+  }), [gameState.clues, gameState.inventory, gameState.knowledgeGraph?.entities, gameState.locations, gameState.location, gameState.quests, gameState.threats, character, setupComplete]);
+
+  const handleReanalyzeRecords = useCallback(async () => {
+    const summaryReply = findLatestSummaryReply(messages);
+    if (summaryReply) {
+      return applyAIStateUpdate(summaryReply.slice(-20000), {
+        forceRefresh: true,
+        priorityOnly: true,
+      });
+    }
+    return {
+      items: 0,
+      people: 0,
+      entities: 0,
+      knowledgeUpdated: false,
+      noSummary: true,
+    };
+  }, [applyAIStateUpdate, messages]);
 
   // ── AI 对话核心 ──
   const {
@@ -262,7 +283,7 @@ export default function App() {
           <button
             className="sidebar-toggle-btn"
             onClick={() => openInvestigation('reasoning')}
-            title="打开调查工作台"
+            title="打开调查工作台" title="打开调查工作台" aria-label="打开调查工作台"
           >
             🕵️
           </button>
@@ -274,10 +295,10 @@ export default function App() {
           </span>
         </div>
         <div className="header-right">
-          <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="API 设置">
+          <button className="settings-btn" onClick={() => setShowSettings(!showSettings)} title="API 设置" title="API 设置" aria-label="API 设置">
             ⚙️
           </button>
-          <button className="clear-btn" onClick={() => setShowStories(true)} title="冒险记录">
+          <button className="clear-btn" onClick={() => setShowStories(true)} title="冒险记录" title="冒险记录" aria-label="冒险记录" title="冒险记录" title="冒险记录" aria-label="冒险记录" aria-label="冒险记录">
             📜 冒险记录
           </button>
         </div>
@@ -320,14 +341,7 @@ export default function App() {
         setGameState={setGameState}
         activeTab={investigationTab}
         onTabChange={setInvestigationTab}
-        onAnalyze={() => analyzeKnowledge(
-          messages
-            .filter((message) => message.type === 'bot')
-            .map((message) => message.text)
-            .join('\n\n')
-            .slice(-20000),
-          { replaceGraph: true }
-        )}
+        onAnalyze={handleReanalyzeRecords}
       />
 
       {showSettings && (
@@ -499,7 +513,7 @@ export default function App() {
                     <div className="story-item-title">
                       {story.id === currentId && <span className="story-active-dot">●</span>}
                       {story.title}
-                      <button className="story-rename-btn" onClick={(e) => { e.stopPropagation(); const t = prompt('修改冒险名称', story.title); if (t?.trim()) renameStory(t.trim()); }} title="改名">✏️</button>
+                      <button className="story-rename-btn" onClick={(e) => { e.stopPropagation(); const t = prompt('修改冒险名称', story.title); if (t?.trim()) renameStory(t.trim()); }} title="改名" title="改名" aria-label="修改冒险名称">✏️</button>
                     </div>
                     <div className="story-item-meta">
                       <span>{new Date(story.updatedAt).toLocaleDateString('zh-CN')}</span>
@@ -509,7 +523,7 @@ export default function App() {
                   <button
                     className="story-delete-btn"
                     onClick={(e) => { e.stopPropagation(); if (confirm('删除？')) removeStory(story.id); }}
-                    title="删除"
+                    title="删除" title="删除" aria-label="删除冒险记录"
                   >
                     🗑️
                   </button>

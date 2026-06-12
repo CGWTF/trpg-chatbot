@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import useLocalStorageState from './useLocalStorageState';
-import { getImageConfig, saveImageConfig } from '../utils/storage';
+import { getImageConfig } from '../utils/storage';
 
 /**
  * 图片生成配置与操作
@@ -14,9 +14,7 @@ export default function useImageSettings(setMessages) {
 
   const updateImageConfig = useCallback((patch) => {
     setImageConfigState((prev) => {
-      const next = { ...prev, ...patch };
-      saveImageConfig(next);
-      return next;
+      return { ...prev, ...patch };
     });
   }, [setImageConfigState]);
 

@@ -87,8 +87,7 @@ button {
   cursor: pointer;
   font-family: var(--font-body);
   border: none;
-  outline: none;
-  transition: all 0.2s ease;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 button:focus-visible {
@@ -98,7 +97,6 @@ button:focus-visible {
 
 input {
   font-family: var(--font-body);
-  outline: none;
   border: none;
 }
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { parseAIForRollRequest } from '../utils/rollContext';
 import createAIPlugin from '../plugins/aiPlugin';
 
@@ -11,11 +11,18 @@ function getTime() {
  *
  * onAIStateUpdate: AI 回复中包含 [STATE:...] 标签时回调，由 useGameState 处理
  */
-export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdate }) {
+export default function useAIChat({
+  apiKey,
+  addMessage,
+  messages,
+  onAIStateUpdate,
+  storyId,
+  reasoningContext,
+}) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
-  const [pendingRollRequest, setPendingRollRequest] = useState(null);
+  const [pendingRollState, setPendingRollState] = useState(null);
   const abortRef = useRef(null);
 
   // 仅创建一次 — 所有回调使用 state setter（稳定引用）
@@ -30,11 +37,10 @@ export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdat
         onStreamEnd: (aborted, fullText) => {
           setIsStreaming(false);
           setStreamingText('');
-          abortRef.current = null;
           if (!aborted && fullText) {
             const rollReq = parseAIForRollRequest(fullText);
             if (rollReq) {
-              setPendingRollRequest(rollReq);
+              setPendingRollState({ storyId, request: rollReq });
             } else if (fullText.length > 20) {
               console.warn(
                 '[检定解析] AI 回复中未检测到检定请求，回复预览:',
@@ -53,8 +59,20 @@ export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdat
           setIsProcessing(false);
         },
       }),
-    [] // state setters / onAIStateUpdate 稳定（由 useGameState 的 useCallback 保证）
+    [addMessage, onAIStateUpdate, storyId]
   );
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, [storyId]);
+
+  const pendingRollRequest = pendingRollState?.storyId === storyId
+    ? pendingRollState.request
+    : null;
+  const setPendingRollRequest = useCallback((request) => {
+    setPendingRollState(request ? { storyId, request } : null);
+  }, [storyId]);
 
   const callAI = useCallback(
     async (userText, customMessages) => {
@@ -73,21 +91,23 @@ export default function useAIChat({ apiKey, addMessage, messages, onAIStateUpdat
       abortRef.current = controller;
 
       const latestMessages = customMessages || messages;
-      const result = await aiPlugin.sendToAI(userText, controller, {
-        messages: latestMessages,
-        apiKey,
-      });
-
-      setIsStreaming(false);
-      setStreamingText('');
-      abortRef.current = null;
-
-      if (result) {
-        addMessage({ text: result, type: 'bot', time: getTime() });
+      try {
+        const result = await aiPlugin.sendToAI(userText, controller, {
+          messages: latestMessages,
+          apiKey,
+          reasoningContext,
+        });
+        if (result && !controller.signal.aborted) {
+          addMessage({ text: result, type: 'bot', time: getTime() });
+        }
+      } finally {
+        if (abortRef.current === controller) abortRef.current = null;
+        setIsStreaming(false);
+        setStreamingText('');
+        setIsProcessing(false);
       }
-      setIsProcessing(false);
     },
-    [apiKey, messages, addMessage, aiPlugin, setIsProcessing]
+    [apiKey, messages, addMessage, aiPlugin, reasoningContext]
   );
 
   return {

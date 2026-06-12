@@ -28,7 +28,7 @@ export default function GameSidebar({
       <div className="game-sidebar" onClick={(e) => e.stopPropagation()}>
         <div className="sidebar-header">
           <h3>🎮 角色</h3>
-          <button className="sidebar-close-btn" onClick={onClose}>✕</button>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="关闭角色面板">✕</button>
         </div>
         <div className="game-sidebar-body">
           <div className="sidebar-section">
@@ -118,7 +118,7 @@ export default function GameSidebar({
 
           {onOpenReasoning && (
             <button className="new-story-btn" onClick={() => { onOpenReasoning(); onClose(); }}
-              style={{ margin: '8px 0 0', width: '100%' }}>
+              style={{ margin: '8px 0 0', width: '100%' }} aria-label="打开调查工作台">
               🕵️ 打开调查工作台
             </button>
           )}

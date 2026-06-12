@@ -24,7 +24,7 @@ export default function InvestigationWorkspace({
           <h2>调查工作台</h2>
           <p>整理假设、证据与人物关系</p>
         </div>
-        <button className="investigation-close-btn" onClick={onClose} title="关闭调查工作台">✕</button>
+        <button className="investigation-close-btn" onClick={onClose} title="关闭调查工作台" aria-label="关闭调查工作台">✕</button>
       </header>
 
       <nav className="investigation-tabs" aria-label="调查视图">
@@ -55,13 +55,11 @@ export default function InvestigationWorkspace({
             onClear={() => setGameState((prev) => ({ ...prev, hypotheses: [] }))}
           />
         ) : activeTab === 'board' ? (
-          <EvidenceBoard gameState={gameState} setGameState={setGameState} />
+          <EvidenceBoard gameState={gameState} />
         ) : (
           <RelationsView
             graph={graph}
-            people={people}
             onAnalyze={onAnalyze}
-            setGameState={setGameState}
             onClear={() => setGameState((prev) => ({
               ...prev,
               knowledgeGraph: {
@@ -76,20 +74,46 @@ export default function InvestigationWorkspace({
         )}
       </main>
 
-      {/* 道具 / 线索 / 场所（折叠面板，始终可见） */}
+      {/* 整理信息的六个结构化分区 */}
       <aside className="investigation-items">
-        <FoldBox title="🎒 道具" count={gameState?.inventory?.length || 0}
+        <FoldBox title="主线任务" count={gameState?.quests?.length || 0}
+          onClear={() => setGameState((p) => ({ ...p, quests: [] }))}>
+          {(gameState?.quests || []).map((quest, i) => <li key={i} className="sidebar-list-item">{quest}</li>)}
+        </FoldBox>
+        <FoldBox title="已获得道具" count={gameState?.inventory?.length || 0}
           onClear={() => setGameState((p) => ({ ...p, inventory: [] }))}>
           {(gameState?.inventory || []).map((item, i) => <li key={i} className="sidebar-list-item inventory-item">{item}</li>)}
         </FoldBox>
-        <FoldBox title="🔍 线索日志" count={gameState?.clues?.length || 0}
+        <FoldBox title="关键人物" count={people.length}
+          onClear={() => setGameState((p) => {
+            const personIds = new Set((p.knowledgeGraph?.entities || [])
+              .filter((entity) => entity.type === 'person')
+              .map((entity) => entity.id));
+            return {
+              ...p,
+              knowledgeGraph: {
+                ...p.knowledgeGraph,
+                entities: (p.knowledgeGraph?.entities || []).filter((entity) => entity.type !== 'person'),
+                relations: (p.knowledgeGraph?.relations || []).filter(
+                  (relation) => !personIds.has(relation.source) && !personIds.has(relation.target)
+                ),
+              },
+            };
+          })}>
+          {people.map((person) => <li key={person.id} className="sidebar-list-item">{person.name}</li>)}
+        </FoldBox>
+        <FoldBox title="已知地点" count={gameState?.locations?.length || 0}
+          onClear={() => setGameState((p) => ({ ...p, locations: [] }))}>
+          {(gameState?.locations || []).map((loc, i) => <li key={i} className="sidebar-list-item location-item">{loc}</li>)}
+        </FoldBox>
+        <FoldBox title="潜在威胁" count={gameState?.threats?.length || 0}
+          onClear={() => setGameState((p) => ({ ...p, threats: [] }))}>
+          {(gameState?.threats || []).map((threat, i) => <li key={i} className="sidebar-list-item">{threat}</li>)}
+        </FoldBox>
+        <FoldBox title="重要情报" count={gameState?.clues?.length || 0}
           onClear={() => setGameState((p) => ({ ...p, clues: [] }))}
           summary={gameState?.knowledgeGraph?.entities?.length ? `已关联 ${gameState.knowledgeGraph.entities.length} 个实体 · ${gameState.knowledgeGraph.relations.length} 条关系` : null}>
           {(gameState?.clues || []).map((clue, i) => <li key={i} className="sidebar-list-item clue-item-sidebar">{clue}</li>)}
-        </FoldBox>
-        <FoldBox title="🏛️ 已知场所" count={gameState?.locations?.length || 0}
-          onClear={() => setGameState((p) => ({ ...p, locations: [] }))}>
-          {(gameState?.locations || []).map((loc, i) => <li key={i} className="sidebar-list-item location-item">{loc}</li>)}
         </FoldBox>
       </aside>
 
@@ -132,8 +156,32 @@ function ReasoningView({ hypotheses, onClear }) {
   );
 }
 
-function RelationsView({ graph, people, onClear, onAnalyze, setGameState, characterName }) {
+function RelationsView({ graph, onClear, onAnalyze, characterName }) {
   const [selectedId, setSelectedId] = useState(null);
+  const [analysisState, setAnalysisState] = useState({ running: false, message: '' });
+
+  const handleAnalyze = async () => {
+    if (analysisState.running) return;
+    setAnalysisState({ running: true, message: '正在分析全部当前记录…' });
+    try {
+      const result = await onAnalyze?.();
+      const peopleCount = result?.people || 0;
+      const itemCount = result?.items || 0;
+      const categoryCount = (result?.quests || 0) + (result?.threats || 0) + (result?.intelligence || 0);
+      const message = result?.noSummary
+        ? '未找到整理信息请求，请先在对话中要求整理信息'
+        : result?.preservedExisting
+          ? '未识别到整理结果，已保留现有工作台内容'
+        : peopleCount || itemCount || categoryCount
+        ? `已按最近整理结果覆盖：${peopleCount} 个人物、${itemCount} 件道具、${categoryCount} 条任务/威胁/情报`
+        : result?.knowledgeUpdated
+          ? '分析完成，但没有发现新的具名人物或持有物品'
+          : '已清除旧提取结果，但整理回复中没有具名人物或持有物品';
+      setAnalysisState({ running: false, message });
+    } catch {
+      setAnalysisState({ running: false, message: '分析失败，请确认服务已启动后重试' });
+    }
+  };
 
   // 确保"我"始终作为一个实体存在
   const meEntity = useMemo(() => {
@@ -160,7 +208,7 @@ function RelationsView({ graph, people, onClear, onAnalyze, setGameState, charac
         title="人物关系分析"
         meta={`${allEntities.length} 个实体 · ${graph.relations.length} 条关系`}
         onClear={graph.entities.length ? onClear : null}
-        action={{ label: '重新分析', onClick: onAnalyze }}
+        action={{ label: analysisState.running ? '分析中…' : '重新分析', onClick: handleAnalyze, disabled: analysisState.running }}
       />
       <div className="graph-stats">
         {['person', 'place', 'organization'].map(t => {
@@ -227,6 +275,7 @@ function RelationsView({ graph, people, onClear, onAnalyze, setGameState, charac
       <p className="investigation-meta">
         抽取器：{graph.extractor || '尚未分析'}
         {graph.embeddingRecommended && ' · 建议启用 Embedding'}
+        {analysisState.message && ` · ${analysisState.message}`}
       </p>
     </div>
   );
@@ -237,7 +286,7 @@ function ViewHeader({ title, meta, onClear, action }) {
     <header className="investigation-view-header">
       <div><h3>{title}</h3><span>{meta}</span></div>
       <div className="investigation-view-actions">
-        {action && <button onClick={action.onClick}>{action.label}</button>}
+        {action && <button onClick={action.onClick} disabled={action.disabled}>{action.label}</button>}
         {onClear && <button className="danger" onClick={onClear} title={`清空${title}`}>清空</button>}
       </div>
     </header>

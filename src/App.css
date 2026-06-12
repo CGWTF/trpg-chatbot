@@ -30,7 +30,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .sidebar-toggle-btn:hover {
@@ -231,7 +231,6 @@
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-family: var(--font-body);
-  outline: none;
   cursor: pointer;
 }
 
@@ -327,7 +326,7 @@
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .welcome-feature:hover {
@@ -504,7 +503,7 @@
   border-radius: 12px;
   font-size: 12px;
   font-family: var(--font-mono);
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .quick-dice button:hover {
@@ -533,7 +532,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .chat-input:focus {
@@ -626,7 +625,7 @@
   border-radius: var(--radius-sm);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
   align-self: flex-start;
 }
 
@@ -904,7 +903,7 @@
   border-radius: 3px;
   cursor: pointer;
   opacity: 0.5;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
   margin-left: 4px;
 }
 .sidebar-clear-btn:hover {
@@ -1085,7 +1084,7 @@
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 .setup-scale-card.selected { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
 .setup-scale-card:hover { border-color: var(--accent); }
@@ -1099,7 +1098,7 @@
 
 .setup-footer { display: flex; align-items: center; padding: 12px 24px; border-top: 1px solid var(--border); gap: 8px; }
 .setup-spacer { flex: 1; }
-.setup-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+.setup-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s; }
 .setup-btn.primary { background: var(--accent-dark); color: #fff; }
 .setup-btn.primary:hover { background: var(--accent); }
 .setup-btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1688,7 +1687,7 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .new-story-btn:hover {
@@ -1720,7 +1719,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 
 .story-item:hover {
@@ -1770,7 +1769,7 @@
   font-size: 14px;
   cursor: pointer;
   opacity: 0;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -1989,7 +1988,7 @@
   font-size: 12px;
   font-family: var(--font-mono);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
   white-space: nowrap;
 }
 
@@ -2230,7 +2229,7 @@
   border-radius: 3px;
   cursor: pointer;
   opacity: 0.4;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
   margin-left: 4px;
 }
 .story-rename-btn:hover { opacity: 1; background: rgba(96,165,250,0.15); border-color: var(--info); }

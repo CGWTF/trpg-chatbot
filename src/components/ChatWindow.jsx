@@ -99,6 +99,8 @@ function formatStreamingText(text) {
 
 function stripReasoningBlock(text) {
   return text
+    .replace(/<TRPG_EVENTS>[\s\S]*?<\/TRPG_EVENTS>/gi, '')
+    .replace(/<TRPG_STATE>[\s\S]*?<\/TRPG_STATE>/gi, '')
     .replace(/<TRPG_REASONING>[\s\S]*?<\/TRPG_REASONING>/gi, '')
     .replace(/<TRPG_KNOWLEDGE>[\s\S]*?<\/TRPG_KNOWLEDGE>/gi, '')
     .trim();
