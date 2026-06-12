@@ -463,20 +463,32 @@ function parseEmojiSections(text) {
 
     if (!currentTarget) continue;
 
-    // 跳过疑似其他分区标题的行，并停止当前目标（避免后续内容误加入）
+    // 跳过标题行和空白
     const bareLine = line.replace(/\*\*/g, '');
     if (/^(?:⏳|💡|⚠️|⚔️|🗺️|🏷️|🎯)/u.test(bareLine) && /[：:]/.test(bareLine)) {
       currentTarget = null;
       continue;
     }
 
+    // 智能提取：线索/道具含 — 或 ：分隔时优先取描述侧
     let cleaned = line
       .replace(/\*\*/g, '')
       .replace(/^[\s\d]*[.、)\-\s•*]*\s*/, '')
       .replace(/[（(][^)）]*[）)]/g, '')
-      .replace(/[—-].*$/, '')
       .trim();
-    if (cleaned.length >= 2 && cleaned.length <= 40 && !noise.test(cleaned)) {
+
+    if (!cleaned || cleaned.length < 2) continue;
+
+    // 带破折号/冒号的条目：取描述部分（右侧），除非右侧太短
+    const dashIdx = cleaned.search(/[—\-：:]/);
+    if (dashIdx > 0 && currentTarget === clues) {
+      const right = cleaned.slice(dashIdx + 1).trim();
+      if (right.length >= 4 && right.length <= 35) {
+        cleaned = right;
+      }
+    }
+
+    if (cleaned.length >= 2 && cleaned.length <= 35 && !noise.test(cleaned)) {
       if (!currentTarget.includes(cleaned)) currentTarget.push(cleaned);
     }
   }
