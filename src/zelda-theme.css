@@ -204,6 +204,8 @@ h1, h2, h3, .sidebar-header h3, .setup-scale-header strong {
   color: #8ab8e0;
 }
 
+.fold-summary { color: var(--info-light); }
+
 .location-item {
   background: rgba(212,168,67,0.08);
   border-left: 2px solid var(--accent);

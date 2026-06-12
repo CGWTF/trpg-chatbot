@@ -2235,3 +2235,30 @@
 }
 .story-rename-btn:hover { opacity: 1; background: rgba(96,165,250,0.15); border-color: var(--info); }
 
+
+/* ========== Entity & Clue Summary ========== */
+.fold-summary {
+  font-size: 11px;
+  padding: 4px 12px 2px;
+  font-style: italic;
+}
+
+.entity-type-groups { display: flex; flex-direction: column; gap: 8px; }
+.entity-type-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  display: block;
+}
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.entity-row strong { color: var(--text-primary); }
+.entity-row small { color: var(--text-muted); font-size: 11px; }
+

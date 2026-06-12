@@ -8,6 +8,7 @@ export default function InvestigationWorkspace({
   setGameState,
   activeTab,
   onTabChange,
+  onAnalyze,
 }) {
   if (!isOpen) return null;
 
@@ -50,6 +51,7 @@ export default function InvestigationWorkspace({
           <RelationsView
             graph={graph}
             people={people}
+            onAnalyze={onAnalyze}
             onClear={() => setGameState((prev) => ({
               ...prev,
               knowledgeGraph: {
@@ -71,7 +73,8 @@ export default function InvestigationWorkspace({
           {(gameState?.inventory || []).map((item, i) => <li key={i} className="sidebar-list-item inventory-item">{item}</li>)}
         </FoldBox>
         <FoldBox title="🔍 线索日志" count={gameState?.clues?.length || 0}
-          onClear={() => setGameState((p) => ({ ...p, clues: [] }))}>
+          onClear={() => setGameState((p) => ({ ...p, clues: [] }))}
+          summary={gameState?.knowledgeGraph?.entities?.length ? `已关联 ${gameState.knowledgeGraph.entities.length} 个实体 · ${gameState.knowledgeGraph.relations.length} 条关系` : null}>
           {(gameState?.clues || []).map((clue, i) => <li key={i} className="sidebar-list-item clue-item-sidebar">{clue}</li>)}
         </FoldBox>
         <FoldBox title="🏛️ 已知场所" count={gameState?.locations?.length || 0}
@@ -97,8 +100,18 @@ function ReasoningView({ hypotheses, onClear }) {
                 <strong>{hypothesis.confidence}%</strong>
               </div>
               <div className="reasoning-meter"><span style={{ width: `${hypothesis.confidence}%` }} /></div>
-              <EvidenceColumn title="支持证据" items={hypothesis.evidence} type="support" />
-              <EvidenceColumn title="反证" items={hypothesis.contradictions} type="against" />
+              <EvidenceColumn
+                title="支持证据"
+                items={hypothesis.evidence}
+                sources={hypothesis.evidenceSources}
+                type="support"
+              />
+              <EvidenceColumn
+                title="反证"
+                items={hypothesis.contradictions}
+                sources={hypothesis.contradictionSources}
+                type="against"
+              />
             </article>
           ))}
         </div>
@@ -109,41 +122,63 @@ function ReasoningView({ hypotheses, onClear }) {
   );
 }
 
-function RelationsView({ graph, people, onClear }) {
+function RelationsView({ graph, people, onClear, onAnalyze }) {
+  const personIds = new Set(people.map((person) => person.id));
+  const personRelations = graph.relations.filter(
+    (relation) => personIds.has(relation.source) && personIds.has(relation.target)
+  );
+  const centralityById = new Map(
+    (graph.analysis?.centralEntities || []).map((entity) => [entity.entityId, entity.score])
+  );
+
   return (
     <div className="investigation-view">
-      <ViewHeader title="人物关系分析" meta={`${graph.entities.length} 个实体`} onClear={graph.entities.length ? onClear : null} />
+      <ViewHeader
+        title="人物关系分析"
+        meta={`${people.length} 个人物 · ${personRelations.length} 条人物关系`}
+        onClear={graph.entities.length ? onClear : null}
+        action={{ label: '重新分析当前记录', onClick: onAnalyze }}
+      />
       <div className="graph-stats">
         <Stat label="人物" value={people.length} />
         <Stat label="全部实体" value={graph.entities.length} />
-        <Stat label="关系" value={graph.relations.length} />
+        <Stat label="人物关系" value={personRelations.length} />
         <Stat label="关系群组" value={graph.analysis?.componentCount || 0} />
       </div>
 
       {graph.entities.length ? (
         <div className="relations-layout">
           <section className="investigation-panel">
-            <h3>关键人物</h3>
-            <div className="central-person-list">
-              {(graph.analysis?.centralEntities || []).map((entity, index) => (
-                <div key={entity.entityId}>
-                  <span>{index + 1}</span>
-                  <strong>{entity.name}</strong>
-                  <small>{Math.round(entity.score * 100)}%</small>
-                </div>
-              ))}
+            <h3>全部实体 ({graph.entities.length})</h3>
+            <div className="entity-type-groups">
+              {['person', 'place', 'organization'].map(type => {
+                const group = graph.entities.filter(e => e.type === type);
+                if (!group.length) return null;
+                const labels = { person: '👤 人物', place: '📍 地点', organization: '🏛️ 组织' };
+                return (
+                  <div key={type} className="entity-type-group">
+                    <span className="entity-type-label">{labels[type]} ({group.length})</span>
+                    {group.map(e => (
+                      <div key={e.id} className="entity-row">
+                        <strong>{e.name}</strong>
+                        {e.description && <small>{e.description}</small>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </section>
           <section className="investigation-panel relation-table-panel">
-            <h3>关系记录</h3>
+            <h3>所有关系 ({graph.relations.length})</h3>
             <div className="relation-table">
-              {graph.relations.map((relation) => (
+              {graph.relations.length ? graph.relations.map((relation) => (
                 <div key={relation.id}>
                   <span>{entityName(graph.entities, relation.source)}</span>
                   <strong>{relation.type}</strong>
                   <span>{entityName(graph.entities, relation.target)}</span>
                 </div>
-              ))}
+              )) : <span className="relation-empty">尚未发现关系</span>}
             </div>
           </section>
         </div>
@@ -151,27 +186,49 @@ function RelationsView({ graph, people, onClear }) {
         <EmptyState>启动 NLP 服务后，重要人物、地点和关系会自动进入这里。</EmptyState>
       )}
       <p className="investigation-meta">
-        抽取器：{graph.extractor || '等待 NLP 服务'}
+        抽取器：{graph.extractor || '尚未分析'}
         {graph.embeddingRecommended && ' · 当前规模建议启用 Embedding 检索'}
       </p>
     </div>
   );
 }
 
-function ViewHeader({ title, meta, onClear }) {
+function ViewHeader({ title, meta, onClear, action }) {
   return (
     <header className="investigation-view-header">
       <div><h3>{title}</h3><span>{meta}</span></div>
-      {onClear && <button onClick={onClear} title={`清空${title}`}>清空</button>}
+      <div className="investigation-view-actions">
+        {action && <button onClick={action.onClick}>{action.label}</button>}
+        {onClear && <button className="danger" onClick={onClear} title={`清空${title}`}>清空</button>}
+      </div>
     </header>
   );
 }
 
-function EvidenceColumn({ title, items, type }) {
+const SOURCE_LABELS = {
+  clue: '线索',
+  item: '道具',
+  location: '场所',
+  narrative: '本轮叙事',
+};
+
+function EvidenceColumn({ title, items, sources = [], type }) {
   return (
     <div className={`reasoning-evidence reasoning-evidence-${type}`}>
       <h4>{title}</h4>
-      {items.length ? items.map((item) => <p key={item}>{item}</p>) : <span>暂无</span>}
+      {items.length ? items.map((item, index) => {
+        const source = sources.find((entry) => entry.text === item);
+        return (
+          <p key={`${item}-${index}`}>
+            {source && (
+              <small className={`evidence-source-badge evidence-source-${source.source}`}>
+                {SOURCE_LABELS[source.source] || source.source}
+              </small>
+            )}
+            {item}
+          </p>
+        );
+      }) : <span>暂无</span>}
     </div>
   );
 }
@@ -188,7 +245,7 @@ function entityName(entities, id) {
   return entities.find((entity) => entity.id === id)?.name || id;
 }
 
-function FoldBox({ title, count, onClear, children }) {
+function FoldBox({ title, count, onClear, summary, children }) {
   const [open, setOpen] = useState(false);
   const items = React.Children.toArray(children).filter(Boolean);
   return (
@@ -200,9 +257,12 @@ function FoldBox({ title, count, onClear, children }) {
         {count > 0 && onClear && <button className="sidebar-clear-btn" onClick={(e) => { e.stopPropagation(); onClear(); }}>🗑️</button>}
       </div>
       {open && (
+        <>
+        {summary && <div className="fold-summary">{summary}</div>}
         <ul className="sidebar-list" style={{ padding: '4px 0' }}>
           {items.length > 0 ? items : <div className="sidebar-empty-hint" style={{ padding: '6px 12px' }}>暂无记录</div>}
         </ul>
+        </>
       )}
     </div>
   );
