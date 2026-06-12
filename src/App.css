@@ -2312,3 +2312,42 @@
   font-size: 14px;
 }
 
+
+/* ========== Entity Selection & Tags ========== */
+.entity-row-selected {
+  background: rgba(212,168,67,0.12) !important;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+
+.entity-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.entity-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tag-person { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.tag-place { background: rgba(6,182,212,0.15); color: #06b6d4; }
+.tag-organization { background: rgba(236,72,153,0.15); color: #ec4899; }
+
+.entity-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.relation-detail-panel h3 {
+  font-size: 15px;
+  color: var(--accent);
+  margin: 0 0 2px;
+}
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import React from 'react';
 import EvidenceBoard from './EvidenceBoard';
 
@@ -61,6 +61,7 @@ export default function InvestigationWorkspace({
             graph={graph}
             people={people}
             onAnalyze={onAnalyze}
+            setGameState={setGameState}
             onClear={() => setGameState((prev) => ({
               ...prev,
               knowledgeGraph: {
@@ -131,72 +132,101 @@ function ReasoningView({ hypotheses, onClear }) {
   );
 }
 
-function RelationsView({ graph, people, onClear, onAnalyze }) {
-  const personIds = new Set(people.map((person) => person.id));
-  const personRelations = graph.relations.filter(
-    (relation) => personIds.has(relation.source) && personIds.has(relation.target)
-  );
-  const centralityById = new Map(
-    (graph.analysis?.centralEntities || []).map((entity) => [entity.entityId, entity.score])
-  );
+function RelationsView({ graph, people, onClear, onAnalyze, setGameState, characterName }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  // 确保"我"始终作为一个实体存在
+  const meEntity = useMemo(() => {
+    const me = graph.entities.find(e => e.type === 'person' && e.name === (characterName || '我'));
+    return me || { id: 'me', type: 'person', name: characterName || '我', description: '玩家角色' };
+  }, [graph.entities, characterName]);
+
+  // 合并"我"到实体列表
+  const allEntities = useMemo(() => {
+    const has = graph.entities.some(e => e.id === 'me' || e.name === (characterName || '我'));
+    return has ? graph.entities : [meEntity, ...graph.entities];
+  }, [graph.entities, meEntity, characterName]);
+
+  const selected = allEntities.find(e => e.id === selectedId);
+  const selectedRelations = selected
+    ? graph.relations.filter(r => r.source === selected.id || r.target === selected.id)
+    : [];
+
+  const TYPE_LABELS = { person: '👤 人物', place: '📍 地点', organization: '🏛️ 组织' };
 
   return (
     <div className="investigation-view">
       <ViewHeader
         title="人物关系分析"
-        meta={`${people.length} 个人物 · ${personRelations.length} 条人物关系`}
+        meta={`${allEntities.length} 个实体 · ${graph.relations.length} 条关系`}
         onClear={graph.entities.length ? onClear : null}
-        action={{ label: '重新分析当前记录', onClick: onAnalyze }}
+        action={{ label: '重新分析', onClick: onAnalyze }}
       />
       <div className="graph-stats">
-        <Stat label="人物" value={people.length} />
-        <Stat label="全部实体" value={graph.entities.length} />
-        <Stat label="人物关系" value={personRelations.length} />
-        <Stat label="关系群组" value={graph.analysis?.componentCount || 0} />
+        {['person', 'place', 'organization'].map(t => {
+          const count = allEntities.filter(e => e.type === t).length;
+          return <Stat key={t} label={TYPE_LABELS[t]} value={count} />;
+        })}
+        <Stat label="关系" value={graph.relations.length} />
       </div>
 
-      {graph.entities.length ? (
-        <div className="relations-layout">
-          <section className="investigation-panel">
-            <h3>全部实体 ({graph.entities.length})</h3>
-            <div className="entity-type-groups">
-              {['person', 'place', 'organization'].map(type => {
-                const group = graph.entities.filter(e => e.type === type);
-                if (!group.length) return null;
-                const labels = { person: '👤 人物', place: '📍 地点', organization: '🏛️ 组织' };
-                return (
-                  <div key={type} className="entity-type-group">
-                    <span className="entity-type-label">{labels[type]} ({group.length})</span>
-                    {group.map(e => (
-                      <div key={e.id} className="entity-row">
-                        <strong>{e.name}</strong>
-                        {e.description && <small>{e.description}</small>}
-                      </div>
-                    ))}
+      <div className="relations-layout">
+        {/* 左栏：实体列表（可点击） */}
+        <section className="investigation-panel" style={{ flex: 1, maxHeight: 320, overflowY: 'auto' }}>
+          <h3>全部实体</h3>
+          {['person', 'place', 'organization'].map(type => {
+            const group = allEntities.filter(e => e.type === type);
+            if (!group.length) return null;
+            return (
+              <div key={type} className="entity-type-group">
+                <span className="entity-type-label">{TYPE_LABELS[type]} ({group.length})</span>
+                {group.map(e => (
+                  <div key={e.id}
+                    className={`entity-row ${selectedId === e.id ? 'entity-row-selected' : ''}`}
+                    onClick={() => setSelectedId(selectedId === e.id ? null : e.id)}
+                  >
+                    <strong>{e.name}</strong>
+                    {e.description && <small>{e.description}</small>}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            );
+          })}
+        </section>
+
+        {/* 右栏：选中实体详情 + 关系 */}
+        <section className="investigation-panel relation-detail-panel" style={{ flex: 1.4, maxHeight: 320, overflowY: 'auto' }}>
+          {selected ? (
+            <>
+              <h3>{selected.name}</h3>
+              <div className="entity-tags">
+                <span className={`entity-tag tag-${selected.type}`}>{TYPE_LABELS[selected.type]}</span>
+                {selected.description && <span className="entity-desc">{selected.description}</span>}
+              </div>
+              <h4 style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+                关联关系 ({selectedRelations.length})
+              </h4>
+              <div className="relation-table">
+                {selectedRelations.length ? selectedRelations.map(r => (
+                  <div key={r.id}>
+                    <span>{entityName(allEntities, r.source)}</span>
+                    <strong>{r.type}</strong>
+                    <span>{entityName(allEntities, r.target)}</span>
+                  </div>
+                )) : <span className="relation-empty">暂无关联</span>}
+              </div>
+            </>
+          ) : (
+            <div className="relation-empty" style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+              ← 点击左侧实体查看详情与关联
             </div>
-          </section>
-          <section className="investigation-panel relation-table-panel">
-            <h3>所有关系 ({graph.relations.length})</h3>
-            <div className="relation-table">
-              {graph.relations.length ? graph.relations.map((relation) => (
-                <div key={relation.id}>
-                  <span>{entityName(graph.entities, relation.source)}</span>
-                  <strong>{relation.type}</strong>
-                  <span>{entityName(graph.entities, relation.target)}</span>
-                </div>
-              )) : <span className="relation-empty">尚未发现关系</span>}
-            </div>
-          </section>
-        </div>
-      ) : (
-        <EmptyState>启动 NLP 服务后，重要人物、地点和关系会自动进入这里。</EmptyState>
-      )}
+          )}
+        </section>
+      </div>
+
       <p className="investigation-meta">
         抽取器：{graph.extractor || '尚未分析'}
-        {graph.embeddingRecommended && ' · 当前规模建议启用 Embedding 检索'}
+        {graph.embeddingRecommended && ' · 建议启用 Embedding'}
       </p>
     </div>
   );
