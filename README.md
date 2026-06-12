@@ -4,21 +4,34 @@ AI 互动跑团故事机器人 — 对话叙事、骰子检定、场景配图、
 
 ## 🚀 快速开始
 
+### 你只需要 VS Code 和 Node.js
+
+如果还没装 Node.js：去 [nodejs.org](https://nodejs.org) 下载 LTS 版，安装后重启 VS Code。
+
 ```bash
+# 1. 克隆项目（VS Code 终端 Ctrl+`）
 git clone https://github.com/CGWTF/trpg-chatbot.git
 cd trpg-chatbot
+
+# 2. 安装依赖
 npm install
-npm.cmd run dev:full     # 前端 + 后端 + NLP 三进程
+
+# 3. 启动（前端 + 后端，无需 Python）
+npm run dev
 ```
 
-打开 `http://localhost:5173`，点 📜 创建角色卡开始冒险。
+浏览器打开 `http://localhost:5173`，点右上角 ⚙️ 填入 [DeepSeek API Key](https://platform.deepseek.com/)，然后点 📜 创建角色卡——AI 自动生成专属开场白。
 
-### NLP 服务（可选）
+### 可选：NLP 人物关系图
+
+需要 Python 3.10+。装了 Python 后：
 
 ```bash
-pip install -r python_service/requirements.txt    # 基础版(结构化+规则)
-pip install -r python_service/requirements-model.txt  # NER模型增强
+pip install -r python_service/requirements.txt
+npm run dev:full     # 三进程：前端 + 后端 + NLP
 ```
+
+没装 Python → 去 [python.org](https://www.python.org/downloads/) 下载，安装时**勾选 "Add Python to PATH"**。
 
 > 骰子投掷、规则查询、多存档离线可用。故事模式需要 [DeepSeek API Key](https://platform.deepseek.com/)。
 
