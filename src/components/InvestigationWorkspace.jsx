@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import React from 'react';
+import EvidenceBoard from './EvidenceBoard';
 
 export default function InvestigationWorkspace({
   isOpen,
@@ -39,6 +40,12 @@ export default function InvestigationWorkspace({
         >
           🕸️ 人物关系 <span>{people.length}/{graph.relations.length}</span>
         </button>
+        <button
+          className={activeTab === 'board' ? 'active' : ''}
+          onClick={() => onTabChange('board')}
+        >
+          🧩 证据板 <span>{((gameState?.clues?.length || 0) + (gameState?.inventory?.length || 0))}</span>
+        </button>
       </nav>
 
       <main className="investigation-content">
@@ -47,6 +54,8 @@ export default function InvestigationWorkspace({
             hypotheses={hypotheses}
             onClear={() => setGameState((prev) => ({ ...prev, hypotheses: [] }))}
           />
+        ) : activeTab === 'board' ? (
+          <EvidenceBoard gameState={gameState} setGameState={setGameState} />
         ) : (
           <RelationsView
             graph={graph}
