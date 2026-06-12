@@ -390,16 +390,12 @@ export function scanAIForItems(text) {
     locations.push(...sections.locations);
   }
 
-  // ── 策略3：自然语言兜底 ──
-  if (items.length === 0 && clues.length === 0 && locations.length === 0) {
+  // ── 策略3：自然语言兜底（仅道具，线索不用自然语言——太容易误报） ──
+  if (items.length === 0) {
     const noise = /^(什么|那里|这里|那边|这边|这个|那个|一个|几个|一些|一下|东西|情况|事情|没有|也没)$/;
     for (const m of text.matchAll(/(?:获得了?|得到了?|捡起了?|拾起了?|拿到了?|入手了?)[「『]?([^，。！？\n]{2,10})[」』]?/g)) {
       const c = m[1].trim();
       if (c.length >= 2 && c.length <= 15 && !noise.test(c)) items.push(c);
-    }
-    for (const m of text.matchAll(/(?:发现了?|注意到|察觉到)[「『]?([^，。！？\n]{3,20})[」』]?/g)) {
-      const c = m[1].trim();
-      if (c.length >= 3 && c.length <= 25 && !noise.test(c)) clues.push(c);
     }
   }
 
@@ -470,7 +466,7 @@ function parseEmojiSections(text) {
       continue;
     }
 
-    // 智能提取：线索/道具含 — 或 ：分隔时优先取描述侧
+    // 智能提取
     let cleaned = line
       .replace(/\*\*/g, '')
       .replace(/^[\s\d]*[.、)\-\s•*]*\s*/, '')
@@ -479,13 +475,23 @@ function parseEmojiSections(text) {
 
     if (!cleaned || cleaned.length < 2) continue;
 
-    // 带破折号/冒号的条目：取描述部分（右侧），除非右侧太短
-    const dashIdx = cleaned.search(/[—\-：:]/);
-    if (dashIdx > 0 && currentTarget === clues) {
-      const right = cleaned.slice(dashIdx + 1).trim();
-      if (right.length >= 4 && right.length <= 35) {
-        cleaned = right;
+    // 线索：优先取 — 或 ：后的描述侧，过滤叙事噪音
+    if (currentTarget === clues) {
+      const dashIdx = cleaned.search(/[—\-：:]/);
+      if (dashIdx > 0) {
+        const right = cleaned.slice(dashIdx + 1).trim();
+        // 描述侧太短 = 噪音；太长也不行
+        if (right.length >= 6 && right.length <= 35) {
+          cleaned = right;
+        } else {
+          continue; // 不符合线索质量标准
+        }
+      } else {
+        // 无分隔符的线索行：至少 6 字才收录，避免"商贩朝这边看"等叙事碎片
+        if (cleaned.length < 6 || cleaned.length > 35) continue;
       }
+      // 过滤明显的叙事/氛围描述
+      if (/(?:朝这边|朝那边|走过来|看过来|瞥了|望了|环顾|四处|旁边有)/.test(cleaned)) continue;
     }
 
     if (cleaned.length >= 2 && cleaned.length <= 35 && !noise.test(cleaned)) {
