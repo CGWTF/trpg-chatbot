@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 证据板升级
+- **自定义节点** — 带Handle连接点的彩色卡片，支持四向拖线
+- **连线重连** — 拖拽端点切换目标
+- **自动保存** — 画布状态持久化到 gameState，刷新不丢失
+- **旧数据迁移** — normalizeBoardNodes 兼容旧格式
+
+### 图像引擎默认值
+- `useImageSettings` 默认 model: gpt-image-2, size: auto, quality: medium
+
+### 界面
+- `GameSidebar` 重构 — `CharacterField` 组件化，主线任务列表
+- ESLint 忽略 `.venv`/`.pytest_cache`/`python_service/**/__pycache__`
+
+## [0.3.0] — 2026-06-13
+
 ### 新功能
 
 - **新故事引导弹窗** — 角色卡(姓名/性别/年龄/身份/背景) + 属性加点 + 故事规模选择(小150/中220/大300轮)
